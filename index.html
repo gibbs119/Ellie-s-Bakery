@@ -6,6 +6,12 @@
 <title>Elise’s Bakery — 3D</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#FF6FA5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Elise’s Bakery">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <style>
   :root{
     --cream:#FFF3E2; --pink:#FF6FA5; --pink-dark:#E84E8A; --mint:#6ECEB2; --mint-dark:#46A98C;
@@ -235,6 +241,7 @@
   <div id="shopNameTop">Elise’s Bakery</div>
   <div class="pill" id="starPill">⭐ 1</div>
   <div class="pill">🪙 <span id="coinCount">25</span></div>
+  <button class="pill" id="muteBtn" title="Sound on/off" style="cursor:pointer">🔊</button>
 </div>
 
 <div id="screens">
@@ -336,6 +343,9 @@
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 
 /* =========================================================
    SAFE STORAGE
@@ -519,12 +529,24 @@ function coinFlyScreen(sx, sy, amt){
   requestAnimationFrame(()=>{ c.style.left='calc(100vw - 92px)'; c.style.top='12px'; c.style.opacity='0.2'; });
   setTimeout(()=>c.remove(), 780);
 }
-let AC=null;
-function beep(freq=600, dur=.09, type='sine'){
+/* ---- Audio: synthesized SFX + gentle looping music, with mute ---- */
+let AC=null, masterGain=null, musicGain=null;
+let muted = store.get('eliseMute')==='1';
+function audioEnsure(){
+  if (AC) { if (AC.state==='suspended') AC.resume(); return; }
   try{
-    AC = AC || new (window.AudioContext||window.webkitAudioContext)();
+    AC = new (window.AudioContext||window.webkitAudioContext)();
+    masterGain=AC.createGain(); masterGain.gain.value=muted?0:1; masterGain.connect(AC.destination);
+    musicGain=AC.createGain(); musicGain.gain.value=0.10; musicGain.connect(masterGain);
+    startMusic();
+  }catch(e){}
+}
+function beep(freq=600, dur=.09, type='sine'){
+  if (muted) return;
+  try{
+    audioEnsure(); if (!AC) return;
     const o=AC.createOscillator(), g=AC.createGain();
-    o.type=type; o.frequency.value=freq; o.connect(g); g.connect(AC.destination);
+    o.type=type; o.frequency.value=freq; o.connect(g); g.connect(masterGain);
     g.gain.setValueAtTime(.12, AC.currentTime);
     g.gain.exponentialRampToValueAtTime(.001, AC.currentTime+dur);
     o.start(); o.stop(AC.currentTime+dur);
@@ -532,6 +554,40 @@ function beep(freq=600, dur=.09, type='sine'){
 }
 const chime=()=>{ beep(660,.08); setTimeout(()=>beep(880,.1),90); };
 const bigChime=()=>{ beep(523,.09); setTimeout(()=>beep(659,.09),100); setTimeout(()=>beep(784,.14),200); };
+/* looping cheerful melody (major pentatonic), scheduled with a lookahead */
+const MELODY=[523.25,587.33,659.25,783.99,659.25,587.33,523.25,659.25, 698.46,659.25,587.33,523.25,587.33,659.25,523.25,392.00];
+let musicStep=0, musicTimer=null, nextNoteAt=0;
+function noteOn(freq,time,dur){
+  if (!AC) return;
+  const o=AC.createOscillator(), g=AC.createGain();
+  o.type='triangle'; o.frequency.value=freq; o.connect(g); g.connect(musicGain);
+  g.gain.setValueAtTime(0.0001,time); g.gain.linearRampToValueAtTime(0.5,time+0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001,time+dur);
+  o.start(time); o.stop(time+dur+0.02);
+  /* soft bass every 4th note */
+  if (musicStep%4===0){ const b=AC.createOscillator(), bg=AC.createGain();
+    b.type='sine'; b.frequency.value=freq/2; b.connect(bg); bg.connect(musicGain);
+    bg.gain.setValueAtTime(0.0001,time); bg.gain.linearRampToValueAtTime(0.4,time+0.03);
+    bg.gain.exponentialRampToValueAtTime(0.0001,time+dur*1.6);
+    b.start(time); b.stop(time+dur*1.6+0.02); }
+}
+function startMusic(){
+  if (!AC || musicTimer) return;
+  nextNoteAt=AC.currentTime+0.1;
+  const beat=0.34;
+  musicTimer=setInterval(()=>{
+    if (!AC) return;
+    while (nextNoteAt < AC.currentTime+0.25){
+      noteOn(MELODY[musicStep%MELODY.length], nextNoteAt, beat*0.9);
+      musicStep++; nextNoteAt+=beat;
+    }
+  }, 60);
+}
+function setMuted(m){
+  muted=m; store.set('eliseMute', m?'1':'0');
+  if (masterGain && AC) masterGain.gain.setTargetAtTime(m?0:1, AC.currentTime, 0.05);
+  const b=$('muteBtn'); if (b) b.textContent=m?'🔇':'🔊';
+}
 
 /* =========================================================
    GRID (game logic space, reused from 2D)
@@ -613,6 +669,63 @@ function mat(color, o={}){
     emissiveIntensity:o.emissiveIntensity||0,
   });
 }
+/* =========================================================
+   GLB MODEL PIPELINE (data-driven catalog + graceful fallback)
+   ---------------------------------------------------------
+   Every prop/station/costume can be rendered either from the
+   built-in procedural low-poly builder (default, zero deps) OR
+   from a downloaded .glb model — just add a `glb:` URL to its
+   catalog entry below. This makes swapping in cohesive CC0 art
+   packs (Kenney / Quaternius / Poly Pizza) a data change, not code.
+========================================================= */
+const CDN='https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/libs/draco/';
+let gltfLoader=null;
+function getGLTFLoader(){
+  if (gltfLoader) return gltfLoader;
+  gltfLoader=new GLTFLoader();
+  try{ const draco=new DRACOLoader(); draco.setDecoderPath(CDN); gltfLoader.setDRACOLoader(draco); }catch(e){}
+  return gltfLoader;
+}
+const modelCache=new Map();   /* url -> Promise<THREE.Object3D (template)> */
+function loadModelTemplate(url){
+  if (modelCache.has(url)) return modelCache.get(url);
+  const p=new Promise((res,rej)=>{
+    getGLTFLoader().load(url, g=>{
+      const root=g.scene||g.scenes[0];
+      root.traverse(o=>{ if (o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
+      root.userData.animations=g.animations||[];
+      res(root);
+    }, undefined, err=>rej(err));
+  });
+  modelCache.set(url,p);
+  return p;
+}
+/* returns a Group immediately; if entry has a glb it loads async and
+   swaps the procedural placeholder in-place once ready */
+function buildFromCatalog(entry, proceduralFn){
+  const g=new THREE.Group();
+  const placeholder=proceduralFn(); g.add(placeholder);
+  if (entry && entry.glb){
+    loadModelTemplate(entry.glb).then(tpl=>{
+      const inst=(tpl.userData.animations&&tpl.userData.animations.length)?skeletonClone(tpl):tpl.clone(true);
+      if (entry.scale) inst.scale.setScalar(entry.scale);
+      if (entry.rotY) inst.rotation.y=entry.rotY;
+      if (entry.tint){ inst.traverse(o=>{ if (o.isMesh&&o.material){ o.material=o.material.clone(); o.material.color=new THREE.Color(entry.tint); } }); }
+      g.remove(placeholder); g.add(inst);
+    }).catch(()=>{ /* keep procedural placeholder on failure */ });
+  }
+  return g;
+}
+/* catalog: model source per item (glb urls intentionally empty by default
+   so the game ships self-contained; art packs plug in here) */
+const CATALOG = {
+  furn:{
+    flowerPot:{}, plant:{}, rug:{}, balloons:{}, teddy:{}, playArea:{}, fountain:{},
+  },
+};
+/* test/diagnostic hook: prove the GLB pipeline end-to-end */
+window.__loadTestModel = url => loadModelTemplate(url).then(t=>{ const m=t.clone(true); m.position.set(0,2,0); scene.add(m); return true; });
+
 function initThree(){
   renderer=new THREE.WebGLRenderer({canvas, antialias:true, alpha:false});
   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
@@ -881,6 +994,11 @@ function syncFurniture(){
   for (const [id,g] of furnObjs){ if (!keep.has(id)){ scene.remove(g); disposeGroup(g); furnObjs.delete(id); } }
 }
 function makeFurn(type){
+  const g=buildFromCatalog(CATALOG.furn[type], ()=>makeFurnProcedural(type));
+  g.userData.furn=true;
+  return g;
+}
+function makeFurnProcedural(type){
   const g=new THREE.Group(); g.userData.furn=true;
   if (type==='rug'){
     const rug=meshOf(G.cyl(0.46,0.46,0.03,20), mat('#F5A9CB'),false); rug.position.y=0.015; rug.receiveShadow=true; g.add(rug);
@@ -1942,6 +2060,18 @@ document.querySelectorAll('.tab').forEach(t=>{
   });
 });
 
+function setupAppShell(){
+  /* mute toggle */
+  const mb=$('muteBtn'); if (mb){ mb.textContent=muted?'🔇':'🔊'; mb.onclick=()=>{ setMuted(!muted); if(!muted) audioEnsure(); }; }
+  /* start audio on first user gesture (autoplay policies) */
+  const kick=()=>{ audioEnsure(); window.removeEventListener('pointerdown',kick); window.removeEventListener('touchstart',kick); };
+  window.addEventListener('pointerdown',kick,{once:false});
+  window.addEventListener('touchstart',kick,{once:false});
+  /* PWA service worker */
+  if ('serviceWorker' in navigator){
+    window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+  }
+}
 function boot(){
   try{
     initThree();
@@ -1952,6 +2082,7 @@ function boot(){
     frameCamera();
     renderAll();
     checkObjectives();
+    setupAppShell();
     $('loading').style.display='none';
     setInterval(logicTick,1000);
     requestAnimationFrame(frame);

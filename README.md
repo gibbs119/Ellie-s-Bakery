@@ -47,13 +47,46 @@ so a young child can follow along with no reading required:
   costumes (chef hat, fairy, kitty, crown, superstar).
 - **The prices:** set the price of every treat yourself — too high and guests grumble!
 
+## 📱 Install it as an app (PWA)
+
+The 3D game is a Progressive Web App, so on a phone or tablet you can add it to the
+home screen and it opens full-screen with its own cupcake icon, just like a real app:
+
+- **iPad/iPhone (Safari):** open the Pages URL → Share → *Add to Home Screen*.
+- **Android/Chrome:** open the URL → menu → *Install app* / *Add to Home screen*.
+
+A service worker caches the app shell, so after the first load it starts fast and
+keeps working even on a flaky connection.
+
+## 🎨 Adding real 3D art packs (Kenney / Quaternius / Poly Pizza)
+
+The game ships with hand-built low-poly models so it works with zero downloads, but
+it's wired for a **data-driven model catalog** — dropping in professional CC0 art is
+a data change, not a code change:
+
+1. Download `.glb` models from a **CC0** source (no attribution, commercial-safe):
+   - [Kenney.nl](https://kenney.nl/assets) — Food Kit, Furniture Kit, characters, etc.
+   - [Quaternius](https://poly.pizza/u/Quaternius) — rigged characters + props.
+   - [Poly Pizza](https://poly.pizza/explore) — check each model is CC0 (some are CC-BY).
+2. Put the files in `assets/models/` and add a URL to the item in the `CATALOG`
+   object inside `index.html`, e.g. `plant:{ glb:'assets/models/plant.glb', scale:0.5 }`.
+3. That's it — the loader swaps the procedural placeholder for the model
+   automatically, with `DRACOLoader` for compressed meshes and skeletal-animation
+   support for rigged characters. Keeping one art family (all Kenney *or* all
+   Quaternius) is what makes it look cohesive and professional.
+
+**Tip:** pick a single style and stick to it — mismatched asset styles are the
+biggest "amateur" tell.
+
 ## 🛠️ Tech notes
 
-- The 3D game uses **Three.js r184** loaded via an ES-module import map from a CDN.
-  All models are built procedurally from low-poly primitives (no external 3D asset
-  files), so the game stays a single self-contained page.
+- **Three.js r184** loaded via an ES-module import map from a CDN, with
+  `GLTFLoader` + `DRACOLoader` ready for `.glb` models and a procedural fallback so
+  the game is fully playable with no external assets.
 - Tuned for tablets: capped pixel ratio, soft shadows, one main light, gentle
   touch orbit/zoom controls with limits so a young child can't get lost.
+- **Audio:** synthesized music + sound effects (no audio files needed), with a
+  🔊 mute toggle in the top bar that remembers your choice.
 - Progress saves to `localStorage`. The **🔄 Start Over** button (in *My Shop*)
   resets everything.
 
