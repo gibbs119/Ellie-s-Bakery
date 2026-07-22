@@ -1,27 +1,33 @@
 # 🧁 Elise's Bakery
 
-A sweet, kid-friendly bakery tycoon game — now in **3D**! Built for a 7-year-old to
+A sweet, kid-friendly bakery tycoon game — in **3D**! Built for a 7-year-old to
 run their own bakery: bake and decorate treats, serve cute customers, and design
 every part of the shop.
 
-Everything runs in a single web page. No installs, no accounts, and your bakery is
-saved automatically in the browser.
+It's a **Vite + TypeScript** web app using **Three.js**, installable as a PWA, with
+an optional **Firebase** backend for cloud saves and shareable bakeries. With no
+backend configured it runs fully local (saves to the browser) — no accounts needed.
 
-## ▶️ Play it
+## ▶️ Play / host it
 
-- **`index.html`** — the new **3D** game (Three.js). This is the main game.
-- **`classic.html`** — the original **2D** version (kept as a lighter-weight fallback
-  that works fully offline).
+The game is built with Vite and deployed automatically to **GitHub Pages** by a
+GitHub Actions workflow (`.github/workflows/deploy.yml`) on every push to `main`.
 
-### Easiest way to share it with a kid: GitHub Pages
-1. Go to the repository **Settings → Pages**.
-2. Under **Build and deployment**, set **Source** to *Deploy from a branch*,
-   pick the **`main`** branch and the **`/ (root)`** folder, and **Save**.
-3. After a minute, the game is live at
-   `https://gibbs119.github.io/Ellie-s-Bakery/` — open it on a tablet or phone
-   and add it to the home screen.
+One-time setup: repository **Settings → Pages → Build and deployment → Source →
+GitHub Actions**. After the next push, it's live at
+`https://gibbs119.github.io/Ellie-s-Bakery/`.
 
-You can also just open `index.html` in any modern browser.
+Locally:
+
+```bash
+npm install
+npm run dev      # dev server with hot reload
+npm run build    # production build into dist/
+npm run preview  # preview the production build
+```
+
+The **2D** original is preserved at `public/classic.html` (served alongside the 3D
+game, needs no build and works fully offline).
 
 ## 🎮 How to play (for grown-ups helping out)
 
@@ -49,14 +55,27 @@ so a young child can follow along with no reading required:
 
 ## 📱 Install it as an app (PWA)
 
-The 3D game is a Progressive Web App, so on a phone or tablet you can add it to the
-home screen and it opens full-screen with its own cupcake icon, just like a real app:
+On a phone or tablet you can add it to the home screen and it opens full-screen with
+its own cupcake icon, just like a real app:
 
 - **iPad/iPhone (Safari):** open the Pages URL → Share → *Add to Home Screen*.
 - **Android/Chrome:** open the URL → menu → *Install app* / *Add to Home screen*.
 
 A service worker caches the app shell, so after the first load it starts fast and
-keeps working even on a flaky connection.
+keeps working offline.
+
+## ☁️ Cloud saves + sharing (Firebase — optional)
+
+The game works fully without a backend. To sync a bakery across devices and enable
+share links, add a Firebase project:
+
+1. Create a Firebase project, add a **Web app**, and enable **Anonymous auth** and
+   **Cloud Firestore**.
+2. Copy `.env.example` to `.env` and fill in the `VITE_FIREBASE_*` values (or add
+   them as GitHub Actions **repository secrets** of the same names for deploys).
+3. Rebuild. `src/save.ts` then mirrors saves to Firestore and can publish a
+   read-only copy for sharing. These web keys are safe to ship in a front-end build —
+   protect data with **Firestore Security Rules**, not by hiding the keys.
 
 ## 🎨 Adding real 3D art packs (Kenney / Quaternius / Poly Pizza)
 
@@ -68,26 +87,40 @@ a data change, not a code change:
    - [Kenney.nl](https://kenney.nl/assets) — Food Kit, Furniture Kit, characters, etc.
    - [Quaternius](https://poly.pizza/u/Quaternius) — rigged characters + props.
    - [Poly Pizza](https://poly.pizza/explore) — check each model is CC0 (some are CC-BY).
-2. Put the files in `assets/models/` and add a URL to the item in the `CATALOG`
-   object inside `index.html`, e.g. `plant:{ glb:'assets/models/plant.glb', scale:0.5 }`.
-3. That's it — the loader swaps the procedural placeholder for the model
-   automatically, with `DRACOLoader` for compressed meshes and skeletal-animation
-   support for rigged characters. Keeping one art family (all Kenney *or* all
-   Quaternius) is what makes it look cohesive and professional.
+2. Put the files in `public/assets/models/` and add a URL to the item in the
+   `CATALOG` object inside `src/main.js`, e.g.
+   `plant:{ glb:'assets/models/plant.glb', scale:0.5 }`.
+3. The loader swaps the procedural placeholder for the model automatically, with
+   `DRACOLoader` for compressed meshes and skeletal-animation support for rigged
+   characters.
 
-**Tip:** pick a single style and stick to it — mismatched asset styles are the
-biggest "amateur" tell.
+**Tip:** pick a single art family (all Kenney *or* all Quaternius) — mismatched
+styles are the biggest "amateur" tell.
+
+## 🗂️ Project structure
+
+```
+index.html              Vite entry (UI markup + styles)
+src/main.js             the game (Three.js scene, logic, studio, UI)
+src/firebase.ts         lazy Firebase bootstrap (anon auth + Firestore)
+src/save.ts             save service: local always, cloud when configured
+public/                 static assets served at the site root
+  classic.html            the 2D original
+  manifest.json, sw.js    PWA manifest + service worker
+  icons/                  app icons
+.github/workflows/      GitHub Pages build + deploy
+```
 
 ## 🛠️ Tech notes
 
-- **Three.js r184** loaded via an ES-module import map from a CDN, with
-  `GLTFLoader` + `DRACOLoader` ready for `.glb` models and a procedural fallback so
-  the game is fully playable with no external assets.
+- **Three.js r184** bundled from npm (no CDN), with `GLTFLoader` + `DRACOLoader`
+  ready for `.glb` models and a procedural fallback, so the built game is fully
+  self-contained.
 - Tuned for tablets: capped pixel ratio, soft shadows, one main light, gentle
   touch orbit/zoom controls with limits so a young child can't get lost.
-- **Audio:** synthesized music + sound effects (no audio files needed), with a
-  🔊 mute toggle in the top bar that remembers your choice.
-- Progress saves to `localStorage`. The **🔄 Start Over** button (in *My Shop*)
-  resets everything.
+- **Audio:** synthesized music + sound effects (no audio files), with a 🔊 mute
+  toggle in the top bar that remembers your choice.
+- Progress saves to `localStorage` (and Firestore when configured). The
+  **🔄 Start Over** button (in *My Shop*) resets everything.
 
 Made with 💖 for Elise.
