@@ -3,7 +3,11 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { cloudMirror } from './save';
+
+/* animation mixers for any loaded rigged GLB models, ticked each frame */
+const mixers = [];
 
 /* =========================================================
    SAFE STORAGE
@@ -57,6 +61,7 @@ const FURN = {
   teddy:    {ico:'🧸', name:'Teddy Corner',cost:35, star:2, desc:'Kids love it!'},
   playArea: {ico:'🛝', name:'Play Area',   cost:80, star:3, desc:'Kids wait way longer'},
   fountain: {ico:'⛲', name:'Fountain',    cost:90, star:4, desc:'Fancy fancy!'},
+  robot:    {ico:'🤖', name:'Robo Pal',    cost:40, star:2, desc:'A dancing robot friend!'},
 };
 const UPGRADES = {
   art:   {ico:'🖼️', name:'Wall Art',       cost:45,  star:2, desc:'Paintings on the walls!'},
@@ -358,18 +363,29 @@ function loadModelTemplate(url){
   modelCache.set(url,p);
   return p;
 }
+/* resolve a catalog asset path against the site base (Vite BASE_URL) so it
+   works both locally and under a GitHub Pages sub-path */
+function resolveAssetUrl(u){
+  return /^https?:/i.test(u) ? u : ((import.meta.env.BASE_URL || '/') + String(u).replace(/^\//,''));
+}
 /* returns a Group immediately; if entry has a glb it loads async and
    swaps the procedural placeholder in-place once ready */
 function buildFromCatalog(entry, proceduralFn){
   const g=new THREE.Group();
   const placeholder=proceduralFn(); g.add(placeholder);
   if (entry && entry.glb){
-    loadModelTemplate(entry.glb).then(tpl=>{
-      const inst=(tpl.userData.animations&&tpl.userData.animations.length)?skeletonClone(tpl):tpl.clone(true);
+    loadModelTemplate(resolveAssetUrl(entry.glb)).then(tpl=>{
+      const anims=tpl.userData.animations||[];
+      const inst=anims.length?skeletonClone(tpl):tpl.clone(true);
       if (entry.scale) inst.scale.setScalar(entry.scale);
       if (entry.rotY) inst.rotation.y=entry.rotY;
       if (entry.tint){ inst.traverse(o=>{ if (o.isMesh&&o.material){ o.material=o.material.clone(); o.material.color=new THREE.Color(entry.tint); } }); }
       g.remove(placeholder); g.add(inst);
+      if (entry.animate && anims.length){
+        const mixer=new THREE.AnimationMixer(inst);
+        const clip=THREE.AnimationClip.findByName(anims, entry.animate)||anims[0];
+        if (clip){ mixer.clipAction(clip).play(); g.userData.mixer=mixer; mixers.push(mixer); }
+      }
     }).catch(()=>{ /* keep procedural placeholder on failure */ });
   }
   return g;
@@ -379,6 +395,8 @@ function buildFromCatalog(entry, proceduralFn){
 const CATALOG = {
   furn:{
     flowerPot:{}, plant:{}, rug:{}, balloons:{}, teddy:{}, playArea:{}, fountain:{},
+    // real downloaded CC0 model (rigged + animated) — proves the art pipeline
+    robot:{ glb:'assets/models/robot.glb', scale:0.34, animate:'Dance' },
   },
 };
 /* test/diagnostic hook: prove the GLB pipeline end-to-end */
@@ -415,6 +433,13 @@ function initThree(){
   scene.add(dir);
   const fill=new THREE.DirectionalLight(0xFFF0F5, 0.35);
   fill.position.set(-6,6,-4); scene.add(fill);
+
+  /* soft image-based lighting so materials get gentle reflections/sheen */
+  try{
+    const pmrem=new THREE.PMREMGenerator(renderer);
+    scene.environment=pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    scene.environmentIntensity=0.35;
+  }catch(e){}
 
   /* ground raycast plane (invisible, big) */
   groundPlane=new THREE.Mesh(new THREE.PlaneGeometry(60,60), new THREE.MeshBasicMaterial({visible:false}));
@@ -649,7 +674,7 @@ function syncFurniture(){
       const g=makeFurn(p.type); const w=W(p.x,p.y); g.position.set(w.x,0,w.z); scene.add(g); furnObjs.set(id,g);
     }
   });
-  for (const [id,g] of furnObjs){ if (!keep.has(id)){ scene.remove(g); disposeGroup(g); furnObjs.delete(id); } }
+  for (const [id,g] of furnObjs){ if (!keep.has(id)){ if (g.userData.mixer){ const mi=mixers.indexOf(g.userData.mixer); if (mi>=0) mixers.splice(mi,1); } scene.remove(g); disposeGroup(g); furnObjs.delete(id); } }
 }
 function makeFurn(type){
   const g=buildFromCatalog(CATALOG.furn[type], ()=>makeFurnProcedural(type));
@@ -995,6 +1020,7 @@ function frame(now){
   [elise,...staffWalkers,...customers].forEach(w=>stepWalker(w,dt));
   if (worldActive){
     controls.update();
+    for (let i=0;i<mixers.length;i++) mixers[i].update(dt);
     updateWalkers(now);
     updateStationsFx(now);
     updateObjArrow(now);
