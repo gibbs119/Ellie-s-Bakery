@@ -1,0 +1,1587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Elise&#8217;s Bakery</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#FFF3E2; --pink:#FF6FA5; --pink-dark:#E84E8A; --mint:#6ECEB2; --mint-dark:#46A98C;
+    --butter:#FFD166; --butter-dark:#E0AF3F; --choc:#5C3A21; --choc-soft:#8A6242;
+    --card:#FFFDF8; --shadow:0 6px 0 rgba(92,58,33,.12); --radius:22px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
+  html,body{margin:0; padding:0; height:100%; overflow:hidden;}
+  body{font-family:'Nunito',sans-serif; background:var(--cream); color:var(--choc);
+    display:flex; flex-direction:column; touch-action:manipulation;}
+  h1,h2,h3{font-family:'Baloo 2',cursive;}
+  button{font-family:'Baloo 2',cursive; border:none; cursor:pointer; color:var(--choc);}
+
+  /* ============ TOP BAR ============ */
+  #topbar{display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--pink);
+    color:#fff; flex-shrink:0; box-shadow:0 4px 0 rgba(92,58,33,.15); z-index:5;}
+  #shopLogo{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+    font-size:24px;background:var(--butter);flex-shrink:0;box-shadow:inset 0 -3px 0 rgba(0,0,0,.08);}
+  #shopNameTop{font-family:'Baloo 2';font-weight:800;font-size:16px;flex:1;min-width:0;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pill{background:rgba(255,255,255,.25); border-radius:999px; padding:4px 10px;
+    font-family:'Baloo 2'; font-weight:800; font-size:14px; display:flex; align-items:center; gap:4px; color:#fff;}
+  #starPill{background:var(--butter); color:#7A5A00;}
+
+  /* ============ SCREENS ============ */
+  #screens{flex:1; position:relative; overflow:hidden;}
+  .screen{display:none; position:absolute; inset:0; overflow-y:auto; padding:14px 14px 90px;}
+  .screen.active{display:block;}
+  #scr-world{padding:0; overflow:hidden;}
+  #worldWrap{position:absolute; inset:0;}
+  #world{display:block; width:100%; height:100%;}
+
+  /* objective chip */
+  #objChip{position:absolute; top:10px; left:10px; right:72px; z-index:6;
+    background:#fff; border-radius:16px; padding:8px 12px; box-shadow:0 4px 0 rgba(92,58,33,.15);
+    display:flex; align-items:center; gap:8px; font-weight:800; font-size:13px; line-height:1.2;}
+  #objChip .poppy{font-size:24px; animation:bob 1.8s ease-in-out infinite;}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+
+  .fab{position:absolute; z-index:6; width:52px; height:52px; border-radius:18px; font-size:24px;
+    background:#fff; box-shadow:0 4px 0 rgba(92,58,33,.18); display:flex; align-items:center; justify-content:center;}
+  .fab:active{transform:translateY(3px); box-shadow:0 1px 0 rgba(92,58,33,.18);}
+  #buildBtn{right:10px; top:10px;}
+  #buildBtn.on{background:var(--butter); box-shadow:0 0 0 4px var(--pink), 0 4px 0 rgba(92,58,33,.18);}
+  #practiceBtn{right:10px; top:70px;}
+
+  #buildTray{position:absolute; left:0; right:0; bottom:0; z-index:6; display:none;
+    background:rgba(255,255,255,.95); padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+    box-shadow:0 -4px 0 rgba(92,58,33,.1);}
+  #buildTray.show{display:block;}
+  #trayHint{font-weight:800; font-size:12px; color:var(--choc-soft); text-align:center; margin-bottom:6px;}
+  #trayItems{display:flex; gap:8px; overflow-x:auto; padding-bottom:2px;}
+  .tray-item{flex-shrink:0; width:64px; border-radius:14px; background:var(--cream); padding:6px 2px;
+    text-align:center; box-shadow:0 3px 0 rgba(92,58,33,.12);}
+  .tray-item .ti{font-size:24px;} .tray-item .tn{font-size:10px; font-weight:800;}
+  .tray-item .tc{font-size:10px; font-weight:800; color:var(--choc-soft);}
+  .tray-item.sel{background:var(--butter); box-shadow:0 0 0 3px var(--pink);}
+
+  .section-title{font-family:'Baloo 2'; font-weight:800; font-size:17px; margin:14px 4px 8px; display:flex; align-items:center; gap:8px;}
+  .hint{font-size:13px; font-weight:700; color:var(--choc-soft); margin:2px 4px 8px;}
+
+  /* ============ CARDS / SHOP ============ */
+  .grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .card{background:var(--card); border-radius:var(--radius); padding:12px; text-align:center;
+    box-shadow:var(--shadow); position:relative;}
+  .card .big{font-size:32px; line-height:1;}
+  .card .name{font-family:'Baloo 2'; font-weight:800; font-size:14px; margin-top:6px;}
+  .card .sub{font-size:11px; font-weight:700; color:var(--choc-soft); min-height:15px;}
+  .buy-btn{margin-top:8px; width:100%; background:var(--butter); font-weight:800; font-size:15px;
+    border-radius:14px; padding:10px 6px; box-shadow:0 4px 0 var(--butter-dark);}
+  .buy-btn:active{transform:translateY(3px); box-shadow:0 1px 0 var(--butter-dark);}
+  .buy-btn:disabled{background:#EFE4D2; color:#B9A88F; box-shadow:0 4px 0 #D8CBB4;}
+  .owned{background:var(--mint) !important; color:#134e3d !important; box-shadow:0 4px 0 var(--mint-dark) !important;}
+
+  /* ============ MY SHOP ============ */
+  .panel{background:var(--card); border-radius:var(--radius); padding:14px; box-shadow:var(--shadow); margin-bottom:12px;}
+  input[type=text]{width:100%; font-family:'Baloo 2'; font-weight:700; font-size:17px; color:var(--choc);
+    border:3px solid var(--pink); border-radius:14px; padding:10px 12px; background:#fff; outline:none;}
+  .logo-grid{display:grid; grid-template-columns:repeat(6,1fr); gap:8px; margin-top:4px;}
+  .logo-opt{font-size:24px; padding:8px 0; border-radius:12px; background:#F6EBDD; text-align:center;}
+  .logo-opt.sel{background:var(--butter); box-shadow:inset 0 0 0 3px var(--pink);}
+  .color-row{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;}
+  .color-dot{width:34px; height:34px; border-radius:50%;}
+  .color-dot.sel{box-shadow:0 0 0 4px #fff, 0 0 0 7px var(--pink);}
+  .price-row{display:flex; align-items:center; gap:10px; margin:10px 0;}
+  .price-row .p-ico{font-size:24px; width:30px; text-align:center;}
+  .price-row .p-name{flex:1; font-weight:800; font-size:14px;}
+  .stepper{display:flex; align-items:center; gap:8px;}
+  .stepper button{width:36px; height:36px; border-radius:12px; font-size:20px; font-weight:800;
+    background:var(--pink); color:#fff; box-shadow:0 3px 0 var(--pink-dark);}
+  .stepper button:active{transform:translateY(2px); box-shadow:0 1px 0 var(--pink-dark);}
+  .stepper .val{font-family:'Baloo 2'; font-weight:800; font-size:16px; min-width:42px; text-align:center;}
+  .p-mood{width:24px; text-align:center; font-size:18px;}
+
+  /* ============ TAB BAR ============ */
+  #tabbar{position:relative; display:flex; background:#fff; box-shadow:0 -4px 0 rgba(92,58,33,.08);
+    padding:6px 6px calc(6px + env(safe-area-inset-bottom)); z-index:10; flex-shrink:0;}
+  .tab{flex:1; background:none; display:flex; flex-direction:column; align-items:center; gap:1px;
+    font-size:22px; padding:5px 0; border-radius:16px; color:var(--choc-soft); position:relative;}
+  .tab span{font-size:11px; font-weight:800; font-family:'Nunito';}
+  .tab.active{background:var(--cream); color:var(--pink-dark);}
+  .tab .badge{position:absolute; top:0; right:16%; background:var(--pink); color:#fff; font-size:11px;
+    font-weight:800; border-radius:999px; min-width:18px; height:18px; display:flex; align-items:center;
+    justify-content:center; padding:0 4px;}
+
+  /* ============ STATION SHEET ============ */
+  #sheetWrap{position:fixed; inset:0; background:rgba(92,58,33,.35); z-index:25; display:none;
+    align-items:flex-end;}
+  #sheetWrap.show{display:flex;}
+  #sheet{background:var(--cream); width:100%; border-radius:26px 26px 0 0; padding:18px 18px calc(20px + env(safe-area-inset-bottom));
+    animation:up .25s ease; text-align:center;}
+  @keyframes up{from{transform:translateY(60px);opacity:.5}to{transform:none;opacity:1}}
+  #sheetIco{font-size:52px; line-height:1;}
+  #sheetName{font-family:'Baloo 2'; font-weight:800; font-size:21px; margin:6px 0 2px;}
+  #sheetTier{font-weight:800; font-size:14px; color:var(--choc-soft); min-height:20px;}
+  #sheetPerk{font-weight:800; font-size:14px; background:#fff; border-radius:14px; padding:10px; margin:10px 0;}
+  #sheetBtn{width:100%; background:var(--butter); font-weight:800; font-size:19px; border-radius:18px;
+    padding:15px 6px; box-shadow:0 5px 0 var(--butter-dark);}
+  #sheetBtn:active{transform:translateY(3px); box-shadow:0 2px 0 var(--butter-dark);}
+  #sheetBtn:disabled{background:#EFE4D2; color:#B9A88F; box-shadow:0 5px 0 #D8CBB4;}
+  #sheetBtn.maxed{background:var(--mint); color:#0f4636; box-shadow:0 5px 0 var(--mint-dark);}
+  #sheetClose{margin-top:10px; background:none; font-weight:800; font-size:14px; color:var(--choc-soft);}
+
+  /* ============ DESIGN STUDIO ============ */
+  #studio{position:fixed; inset:0; background:var(--cream); z-index:30; display:none; flex-direction:column;}
+  #studio.show{display:flex; animation:pop .25s ease;}
+  @keyframes pop{from{transform:scale(.97);opacity:.4}to{transform:scale(1);opacity:1}}
+  #stTop{display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--mint); color:#0f4636;}
+  #stTop h2{margin:0; font-size:17px; flex:1; line-height:1.2;}
+  #stClose{background:rgba(255,255,255,.5); border-radius:12px; width:38px; height:38px; font-size:17px;}
+  #stSteps{display:flex; gap:6px; padding:8px 14px 0; background:var(--cream);}
+  .st-step{flex:1; text-align:center; font-family:'Baloo 2'; font-weight:800; font-size:12px;
+    padding:7px 2px; border-radius:12px; background:#F0E3D0; color:var(--choc-soft);}
+  .st-step.on{background:var(--pink); color:#fff;}
+  .st-step.done{background:var(--mint); color:#0f4636;}
+  #stBody{flex:1; overflow-y:auto; padding:12px 14px 24px; display:flex; flex-direction:column; align-items:center;}
+  .step-title{font-family:'Baloo 2'; font-weight:800; font-size:19px; margin:2px 0; text-align:center;}
+  .step-sub{font-weight:700; color:var(--choc-soft); font-size:13px; margin-bottom:10px; text-align:center;}
+
+  #stage{width:270px; height:250px; position:relative; margin:4px 0 6px; flex-shrink:0;}
+  #stagePlate{position:absolute; bottom:6px; left:50%; transform:translateX(-50%); width:240px; height:16px;
+    background:#fff; border-radius:999px; box-shadow:0 4px 0 rgba(92,58,33,.15);}
+  #product{position:absolute; inset:0;}
+  .tier{position:absolute; left:50%; transform:translateX(-50%); border-radius:14px;
+    box-shadow:inset 0 -6px 0 rgba(0,0,0,.12); animation:drop .3s ease;}
+  @keyframes drop{from{transform:translateX(-50%) translateY(-26px);opacity:.4}to{transform:translateX(-50%);opacity:1}}
+  .drizzle{position:absolute; left:0; right:0; top:0; height:14px; border-radius:14px 14px 0 0;}
+  .deco{position:absolute; font-size:22px; transform:translate(-50%,-50%); animation:pop .2s ease; pointer-events:none;}
+  .topper{position:absolute; left:50%; transform:translateX(-50%); font-size:42px; animation:drop .35s ease;}
+  .tier.selT{box-shadow:0 0 0 4px var(--pink), inset 0 -6px 0 rgba(0,0,0,.12);}
+
+  .tool-label{width:100%; text-align:center; font-weight:800; font-size:12px; color:var(--choc-soft); margin-top:8px;}
+  .tool-row{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; max-width:430px; margin-top:6px;}
+  .tool-btn{background:var(--card); box-shadow:0 4px 0 rgba(92,58,33,.14); border-radius:16px;
+    font-size:22px; min-width:52px; height:52px; padding:0 8px;}
+  .tool-btn:active{transform:scale(.92);}
+  .tool-btn.sel{background:var(--butter); box-shadow:0 0 0 3px var(--pink), 0 4px 0 rgba(92,58,33,.14);}
+  .tool-btn .tb-sub{display:block; font-size:9px; font-weight:800; font-family:'Nunito'; margin-top:-2px;}
+  .swatch{width:44px; height:44px; border-radius:50%; box-shadow:0 4px 0 rgba(92,58,33,.15);}
+  .swatch.sel{box-shadow:0 0 0 4px #fff, 0 0 0 7px var(--pink);}
+  .lock-note{font-weight:800; font-size:12px; color:var(--pink-dark); background:#fff;
+    border-radius:12px; padding:6px 12px; margin-top:6px;}
+
+  #bigOven{width:180px; height:158px; background:#E8577E; border-radius:26px; margin-top:8px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+    box-shadow:0 8px 0 #B93B60;}
+  #bigOvenWin{width:126px; height:82px; background:#5C2338; border-radius:16px; display:flex;
+    align-items:center; justify-content:center; font-size:42px; overflow:hidden;}
+  #bigOvenBar{width:126px; height:14px; background:#B93B60; border-radius:999px; overflow:hidden;}
+  #bigOvenFill{height:100%; width:0%; background:var(--butter); transition:width .15s linear;}
+  #bigOven.shake{animation:shake .3s;}
+  @keyframes shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-2deg)}75%{transform:rotate(2deg)}}
+  .tap-note{margin-top:10px; font-weight:800; color:var(--choc-soft); font-size:14px; animation:bob 1.5s infinite;}
+
+  .go-btn{margin-top:14px; background:var(--mint); color:#0f4636; font-weight:800; font-size:18px;
+    border-radius:18px; padding:13px 32px; box-shadow:0 5px 0 var(--mint-dark);}
+  .go-btn:active{transform:translateY(3px); box-shadow:0 2px 0 var(--mint-dark);}
+  .go-btn.alt{background:var(--butter); color:var(--choc); box-shadow:0 5px 0 var(--butter-dark);}
+
+  #toast{position:fixed; left:50%; top:16%; transform:translateX(-50%) scale(0); z-index:60;
+    background:#fff; border-radius:22px; padding:13px 20px; box-shadow:0 8px 0 rgba(92,58,33,.15);
+    font-family:'Baloo 2'; font-weight:800; font-size:18px; text-align:center; transition:transform .25s;
+    pointer-events:none; max-width:82vw;}
+  #toast.show{transform:translateX(-50%) scale(1);}
+  .confetti{position:fixed; top:-30px; z-index:59; font-size:22px; pointer-events:none; animation:fall linear forwards;}
+  @keyframes fall{to{transform:translateY(110vh) rotate(360deg);}}
+
+  #picker{position:fixed; inset:0; background:rgba(92,58,33,.35); z-index:35; display:none;
+    align-items:center; justify-content:center;}
+  #picker.show{display:flex;}
+  #pickerBox{background:var(--cream); border-radius:26px; padding:18px; width:min(88vw,360px); text-align:center;}
+  #pickerBox h3{margin:0 0 10px; font-size:18px;}
+  #pickerRow{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div id="shopLogo">🧁</div>
+  <div id="shopNameTop">Elise&#8217;s Bakery</div>
+  <div class="pill" id="starPill">⭐ 1</div>
+  <div class="pill">🪙 <span id="coinCount">25</span></div>
+</div>
+
+<div id="screens">
+  <div class="screen active" id="scr-world">
+    <div id="worldWrap">
+      <canvas id="world"></canvas>
+      <div id="objChip"><span class="poppy">🧁</span><span id="objText">Welcome!</span></div>
+      <button class="fab" id="buildBtn" title="Decorate mode">🔨</button>
+      <button class="fab" id="practiceBtn" title="Practice baking">🎨</button>
+      <div id="buildTray">
+        <div id="trayHint">Pick a decoration, then tap a floor tile! Tap a placed one to pick it up.</div>
+        <div id="trayItems"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen" id="scr-shop">
+    <div class="section-title">🍰 New Treats</div>
+    <div class="grid" id="shopTreats"></div>
+    <div class="section-title">🌸 Decorations</div>
+    <div class="hint">Buy here, place anywhere with the 🔨 hammer in your bakery!</div>
+    <div class="grid" id="shopFurn"></div>
+    <div class="section-title">🏗️ Big Upgrades</div>
+    <div class="grid" id="shopUpgrades"></div>
+    <div class="section-title">🧑‍🍳 Helpers</div>
+    <div class="grid" id="shopStaff"></div>
+    <div class="section-title">👗 Costumes</div>
+    <div class="grid" id="shopCostumes"></div>
+  </div>
+
+  <div class="screen" id="scr-my">
+    <div class="section-title">✏️ Shop Name</div>
+    <div class="panel"><input type="text" id="nameInput" maxlength="24" placeholder="Type your bakery name!"></div>
+    <div class="section-title">🎨 Design Your Logo</div>
+    <div class="panel">
+      <div class="logo-grid" id="logoEmojis"></div>
+      <div class="color-row" id="logoColors"></div>
+    </div>
+    <div class="section-title">🏷️ Menu Prices</div>
+    <div class="hint">You pick every price! Too high and customers say "too pricey!"</div>
+    <div class="panel" id="priceList"></div>
+    <div class="section-title">📊 My Bakery</div>
+    <div class="panel" id="statsPanel"></div>
+    <button class="buy-btn" id="resetBtn" style="background:#F3D9D9; box-shadow:0 4px 0 #D8A8A8;">🔄 Start Over (grown-ups only)</button>
+  </div>
+</div>
+
+<div id="tabbar">
+  <button class="tab active" data-scr="scr-world">🏠<span>Bakery</span><span class="badge" id="custBadge" style="display:none">0</span></button>
+  <button class="tab" data-scr="scr-shop">🛍️<span>Shop</span></button>
+  <button class="tab" data-scr="scr-my">🎀<span>My Shop</span></button>
+</div>
+
+<!-- STATION SHEET -->
+<div id="sheetWrap">
+  <div id="sheet">
+    <div id="sheetIco">🔥</div>
+    <div id="sheetName">Oven</div>
+    <div id="sheetTier"></div>
+    <div id="sheetPerk"></div>
+    <button id="sheetBtn">Fix it!</button>
+    <button id="sheetClose">Close</button>
+  </div>
+</div>
+
+<!-- DESIGN STUDIO -->
+<div id="studio">
+  <div id="stTop">
+    <h2 id="stTitle">Design Studio</h2>
+    <button id="stClose">✖</button>
+  </div>
+  <div id="stSteps"></div>
+  <div id="stBody"></div>
+</div>
+
+<div id="picker">
+  <div id="pickerBox">
+    <h3>🎨 Practice Kitchen — make anything!</h3>
+    <div id="pickerRow"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* =========================================================
+   SAFE STORAGE
+========================================================= */
+const store = (() => {
+  let mem = {}, ok = false;
+  try { localStorage.setItem('__t','1'); localStorage.removeItem('__t'); ok = true; } catch(e){}
+  return {
+    get(k){ try { return ok ? localStorage.getItem(k) : (mem[k] ?? null); } catch(e){ return mem[k] ?? null; } },
+    set(k,v){ try { if(ok) localStorage.setItem(k,v); else mem[k]=v; } catch(e){ mem[k]=v; } },
+    del(k){ try { if(ok) localStorage.removeItem(k); else delete mem[k]; } catch(e){ delete mem[k]; } }
+  };
+})();
+
+/* =========================================================
+   DATA
+========================================================= */
+const ITEMS = {
+  cake:      {ico:'🍰', name:'Cakes',        base:10, always:true},
+  cookie:    {ico:'🍪', name:'Cookies',      base:6,  cost:30,  star:2},
+  iceCream:  {ico:'🍦', name:'Ice Cream',    base:7,  cost:50,  star:3},
+  animalCake:{ico:'🦁', name:'Animal Cakes', base:32, cost:120, star:4, party:true},
+};
+const CAKE_FLAVORS = [
+  {id:'choc',    name:'Chocolate',  ico:'🍫', color:'#6B4226'},
+  {id:'vanilla', name:'Vanilla',    ico:'🍰', color:'#FBE8C8'},
+  {id:'rainbow', name:'Rainbow',    ico:'🌈', color:'rainbow'},
+];
+const COOKIE_SHAPES = [
+  {id:'circle', name:'Circle', ico:'🔵'}, {id:'heart', name:'Heart', ico:'💗'}, {id:'star', name:'Star', ico:'⭐'},
+];
+const COOKIE_DOUGHS = [
+  {id:'sugar', name:'Sugar', color:'#EFC98A'}, {id:'choc', name:'Chocolate', color:'#7A4B2A'}, {id:'ginger', name:'Ginger', color:'#C98B4B'},
+];
+const SCOOP_FLAVORS = [
+  {id:'straw', name:'Strawberry', color:'#FFB3CE'}, {id:'vanilla', name:'Vanilla', color:'#FFF4DC'},
+  {id:'choc', name:'Chocolate', color:'#8A5A44'}, {id:'mint', name:'Mint', color:'#A8E6CF'}, {id:'blue', name:'Bubblegum', color:'#BDE3F5'},
+];
+const FROSTINGS = ['#FF9EC4','#FFF4DC','#8A5A44','#A8E6CF','#E4C1F9','#FFD166','#BDE3F5'];
+const DRIZZLES = [{id:'choc',color:'#5C3A21',name:'Choc'},{id:'berry',color:'#E84E8A',name:'Berry'},{id:'none',color:null,name:'None'}];
+const TOPPINGS = ['🍓','🍒','✨','🍬','🫐','🍫','🌸','🍭'];
+const TOPPERS = [{id:'candle',ico:'🕯️'},{id:'star',ico:'🌟'},{id:'cherry',ico:'🍒'},{id:'none',ico:'🚫'}];
+const ANIMALS = [{id:'lion',ico:'🦁',name:'Lion'},{id:'giraffe',ico:'🦒',name:'Giraffe'},{id:'leopard',ico:'🐆',name:'Leopard'}];
+const FURN = {
+  flowerPot:{ico:'🌷', name:'Flowers',     cost:20, star:1, desc:'So pretty!'},
+  plant:    {ico:'🪴', name:'Plant',       cost:25, star:1, desc:'Cozy vibes'},
+  rug:      {ico:'🟪', name:'Pink Rug',    cost:15, star:1, desc:'Walk on it!', walkable:true},
+  balloons: {ico:'🎈', name:'Balloons',    cost:30, star:2, desc:'Party time!'},
+  teddy:    {ico:'🧸', name:'Teddy Corner',cost:35, star:2, desc:'Kids love it!'},
+  playArea: {ico:'🛝', name:'Play Area',   cost:80, star:3, desc:'Kids wait way longer'},
+  fountain: {ico:'⛲', name:'Fountain',    cost:90, star:4, desc:'Fancy fancy!'},
+};
+const UPGRADES = {
+  art:   {ico:'🖼️', name:'Wall Art',       cost:45,  star:2, desc:'Paintings on the walls!'},
+  lights:{ico:'✨', name:'Sparkly Lights', cost:60,  star:3, desc:'Lights along the walls!'},
+  expand:{ico:'🏗️', name:'Expand Bakery',  cost:150, star:4, desc:'Bigger room + 2 more table spots!'},
+};
+const STAFF = {
+  waitress:{ico:'👩‍🦰', name:'Waitress Wendy', cost:70, star:2, desc:'Delivers treats + patient guests'},
+  baker:   {ico:'🧑‍🍳', name:'Baker Ben',      cost:90, star:3, desc:'Serves waiting guests for you'},
+};
+const COSTUMES = [
+  {id:'pink', ico:'🎀', name:'Pink Bow', cost:0}, {id:'chef', ico:'👩‍🍳', name:'Chef Hat', cost:20},
+  {id:'fairy', ico:'🧚', name:'Fairy Baker', cost:45}, {id:'cat', ico:'🐱', name:'Kitty Baker', cost:60},
+  {id:'crown', ico:'👑', name:'Bakery Queen', cost:75}, {id:'star', ico:'🌟', name:'Superstar', cost:100},
+];
+const LOGO_EMOJIS = ['🧁','🍰','🍪','🍩','🌈','🦄','🍓','💖','🐱','🌸','⭐','🍦'];
+const LOGO_COLORS = ['#FFD166','#FF9EC4','#A8E6CF','#BDE3F5','#E4C1F9','#FFB4A2'];
+const ADULT_FACES = ['👵','👴','👨','👩','🧑','👱‍♀️','👨‍🦱','👩‍🦰','🧔'];
+const KID_FACES = ['👧','👦','🧒'];
+const STAR_PTS = [0, 50, 140, 300, 520];   /* stars 1..5 */
+
+/* ---- station definitions ---- */
+const STATIONS = {
+  oven: { ico:'🔥', name:'Oven', fixCost:3,
+    tiers:[
+      {name:'Sleepy Oven 💤', perk:'Tap to wake it up so you can bake!'},
+      {name:'Cozy Oven', perk:'You can bake! 🎂'},
+      {name:'Shiny Oven', cost:60, perk:'Bakes faster — bigger oven taps!'},
+      {name:'Rainbow Oven', cost:140, perk:'Super fast + sparkles! ✨'},
+    ]},
+  deco: { ico:'🎨', name:'Decorating Station', fixCost:8,
+    tiers:[
+      {name:'Messy Table 💤', perk:'Tidy it up to decorate treats!'},
+      {name:'Craft Table', perk:'Frosting + toppings unlocked!'},
+      {name:'Artist Table', cost:50, perk:'Unlocks drizzle + more colors!'},
+      {name:'Magic Studio', cost:120, perk:'Unlocks cake toppers + ALL toppings!'},
+    ]},
+  register: { ico:'💰', name:'Cash Register', fixCost:5,
+    tiers:[
+      {name:'Wobbly Register 💤', perk:'Fix it so guests can order!'},
+      {name:'Little Register', perk:'Guests can line up and order!'},
+      {name:'Ding Register', cost:45, perk:'+2 coin tip on every order!'},
+      {name:'Golden Register', cost:110, perk:'+4 coin tip on every order!'},
+    ]},
+  display: { ico:'🧁', name:'Display Case', fixCost:40, buyable:true,
+    tiers:[
+      {name:'Empty Corner', perk:'Add a display case — it sells treats by itself!'},
+      {name:'Sweet Case', perk:'Sells treats all by itself! +2🪙'},
+      {name:'Big Case', cost:75, perk:'Sells more, more often! +3🪙'},
+      {name:'Grand Case', cost:150, perk:'A treat-selling machine! +4🪙'},
+    ]},
+};
+const TABLE_TIERS = [
+  {name:'Wobbly Table 💤', perk:'Fix it so guests can sit!'},
+  {name:'Cafe Table', perk:'A cozy spot for one guest!'},
+  {name:'Pretty Table', cost:25, perk:'Happy guests leave +2🪙!'},
+  {name:'Royal Table', cost:60, perk:'Happy guests leave +4🪙!'},
+];
+const TABLE_BUY_COST = [5, 30, 55, 85, 110, 140];   /* slot 0 is a cheap fix */
+
+/* =========================================================
+   STATE
+========================================================= */
+const DEFAULT = () => ({
+  shopName:"Elise’s Bakery",
+  logo:{emoji:'🧁', color:'#FFD166'},
+  coins:25, starPts:0, served:0, earned:0, parties:0,
+  prices:{cake:10, cookie:6, iceCream:7, animalCake:32},
+  unlockedItems:['cake'],
+  stations:{oven:0, deco:0, register:0, display:-1},
+  tables:[0,-1,-1,-1,-1,-1],     /* per slot: -1 empty, 0 wobbly, 1-3 tier */
+  inventory:{}, placed:[],
+  upgrades:[], staff:[],
+  costumes:['pink'], costume:'pink',
+  objIdx:0,
+});
+let S = DEFAULT();
+try { const raw = store.get('eliseBakeryV3'); if (raw) S = Object.assign(DEFAULT(), JSON.parse(raw)); } catch(e){}
+function save(){ store.set('eliseBakeryV3', JSON.stringify(S)); }
+
+/* =========================================================
+   HELPERS
+========================================================= */
+const $ = id => document.getElementById(id);
+const rand = a => a[Math.floor(Math.random()*a.length)];
+function stars(){ let s=1; for (let i=0;i<STAR_PTS.length;i++){ if (S.starPts>=STAR_PTS[i]) s=i+1; } return Math.min(s,5); }
+function addStarPts(n){
+  const before=stars(); S.starPts+=n;
+  const after=stars();
+  if (after>before){
+    setTimeout(()=>{ confetti(30); toast('⭐ '+after+' STARS! Your bakery is growing! ⭐',2600); bigChime(); renderShop(); renderTop(); }, 700);
+  }
+}
+function toast(msg, ms=1700){
+  const t=$('toast'); t.innerHTML=msg; t.classList.add('show');
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'), ms);
+}
+function confetti(n=14){
+  for (let i=0;i<n;i++){
+    const c=document.createElement('div'); c.className='confetti';
+    c.textContent=['🎉','✨','💖','🌟','🎊'][i%5];
+    c.style.left=(Math.random()*100)+'vw';
+    c.style.animationDuration=(1+Math.random()*1.2)+'s';
+    document.body.appendChild(c); setTimeout(()=>c.remove(),2600);
+  }
+}
+function coinFly(sx, sy, amt){
+  const c=document.createElement('div');
+  c.style.cssText=`position:fixed;z-index:61;font-size:22px;pointer-events:none;left:${sx}px;top:${sy}px;transition:all .7s ease-in;font-family:'Baloo 2';font-weight:800;`;
+  c.textContent='🪙+'+amt;
+  document.body.appendChild(c);
+  requestAnimationFrame(()=>{ c.style.left='calc(100vw - 92px)'; c.style.top='12px'; c.style.opacity='0.2'; });
+  setTimeout(()=>c.remove(), 760);
+}
+let AC=null;
+function beep(freq=600, dur=.09, type='sine'){
+  try{
+    AC = AC || new (window.AudioContext||window.webkitAudioContext)();
+    const o=AC.createOscillator(), g=AC.createGain();
+    o.type=type; o.frequency.value=freq; o.connect(g); g.connect(AC.destination);
+    g.gain.setValueAtTime(.12, AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001, AC.currentTime+dur);
+    o.start(); o.stop(AC.currentTime+dur);
+  }catch(e){}
+}
+const chime=()=>{ beep(660,.08); setTimeout(()=>beep(880,.1),90); };
+const bigChime=()=>{ beep(523,.09); setTimeout(()=>beep(659,.09),100); setTimeout(()=>beep(784,.14),200); };
+
+/* =========================================================
+   WORLD GEOMETRY
+========================================================= */
+const cv=$('world'); const cx=cv.getContext('2d');
+let GX=12, GY=9, TW=52, TH=26, OX=0, OY=0, DPR=1, WALLH=58;
+let DOOR={x:6,y:8};
+const STATION_POS = { oven:{x:1,y:1}, deco:{x:3,y:1}, display:{x:5,y:1}, register:{x:9,y:2} };
+const QUEUE_SPOTS = [{x:9,y:4},{x:9,y:5},{x:9,y:6}];
+function tableSlots(){
+  const base=[{x:3,y:4},{x:6,y:6},{x:10,y:7},{x:2,y:7}];
+  if (S.upgrades.includes('expand')) base.push({x:12,y:4},{x:6,y:9});
+  return base;
+}
+function gridSetup(){
+  GX = S.upgrades.includes('expand') ? 14 : 12;
+  GY = S.upgrades.includes('expand') ? 11 : 9;
+  DOOR = {x:Math.floor(GX/2), y:GY-1};
+}
+function resize(){
+  const w=cv.clientWidth, h=cv.clientHeight;
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  cv.width=w*DPR; cv.height=h*DPR;
+  const pad=12, topRoom=WALLH+64, botRoom=20;
+  const twByW=(w-pad*2)/((GX+GY)/2);
+  const twByH=((h-topRoom-botRoom)/((GX+GY)/2))*2;
+  TW=Math.max(26,Math.min(72,twByW,twByH)); TH=TW/2;
+  const worldW=(GX+GY)*TW/2;
+  OX=(w-worldW)/2 + GY*TW/2;
+  const worldH=(GX+GY)*TH/2;
+  OY=topRoom+Math.max(0,(h-topRoom-botRoom-worldH)/2);
+  buildRoomCache();
+}
+function isoS(x,y){ return { sx:OX+(x-y)*TW/2, sy:OY+(x+y)*TH/2 }; }
+function screenToIso(px,py){
+  const dx=px-OX, dy=py-OY;
+  return { x:Math.round((dx/(TW/2)+dy/(TH/2))/2), y:Math.round((dy/(TH/2)-dx/(TW/2))/2) };
+}
+function inGrid(x,y){ return x>=0&&y>=0&&x<GX&&y<GY; }
+function stationAt(x,y){
+  for (const [k,p] of Object.entries(STATION_POS)) if (p.x===x&&p.y===y) return k;
+  const ts=tableSlots();
+  for (let i=0;i<ts.length;i++) if (ts[i].x===x&&ts[i].y===y) return 'table'+i;
+  return null;
+}
+function furnAt(x,y){ return S.placed.find(p=>p.x===x&&p.y===y); }
+function blocked(x,y){
+  if (!inGrid(x,y)) return true;
+  const st=stationAt(x,y);
+  if (st){
+    if (st.startsWith('table')) return S.tables[parseInt(st.slice(5),10)]>=0; /* empty slots walkable */
+    return true;
+  }
+  const f=furnAt(x,y); return !!(f && !FURN[f.type].walkable);
+}
+function reservedTile(x,y){
+  if (stationAt(x,y)) return true;
+  if (x===DOOR.x&&y===DOOR.y) return true;
+  return QUEUE_SPOTS.some(q=>q.x===x&&q.y===y);
+}
+function findPath(sx,sy,tx,ty){
+  if (sx===tx&&sy===ty) return [];
+  const key=(x,y)=>x+','+y, prev={}, seen={[key(sx,sy)]:true};
+  let q=[[sx,sy]];
+  while (q.length){
+    const [x,y]=q.shift();
+    for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const nx=x+dx, ny=y+dy, k=key(nx,ny);
+      if (seen[k]) continue;
+      if (blocked(nx,ny) && !(nx===tx&&ny===ty&&!blocked(tx,ty))) { if(!(nx===tx&&ny===ty)) continue; }
+      if (blocked(nx,ny)) continue;
+      seen[k]=true; prev[k]=[x,y];
+      if (nx===tx&&ny===ty){
+        const path=[[nx,ny]]; let cur=[x,y];
+        while (!(cur[0]===sx&&cur[1]===sy)){ path.push(cur); cur=prev[key(cur[0],cur[1])]; }
+        return path.reverse().map(p=>({x:p[0],y:p[1]}));
+      }
+      q.push([nx,ny]);
+    }
+  }
+  return null;
+}
+
+/* =========================================================
+   ROOM CACHE (pre-rendered floor/walls/sign)
+========================================================= */
+let roomCv=document.createElement('canvas'), roomCx=roomCv.getContext('2d');
+function buildRoomCache(){
+  roomCv.width=cv.width; roomCv.height=cv.height;
+  const c=roomCx; c.setTransform(DPR,0,0,DPR,0,0);
+  const w=cv.clientWidth, h=cv.clientHeight;
+  c.clearRect(0,0,w,h);
+  const g=c.createLinearGradient(0,0,0,h);
+  g.addColorStop(0,'#FCE4F0'); g.addColorStop(1,'#FFF3E2');
+  c.fillStyle=g; c.fillRect(0,0,w,h);
+  const c00=isoS(0,0), cX0=isoS(GX-1,0), c0Y=isoS(0,GY-1);
+  /* right-facing wall */
+  c.fillStyle='#F7BFD9';
+  c.beginPath();
+  c.moveTo(c00.sx,c00.sy-TH/2-WALLH); c.lineTo(cX0.sx+TW/2,cX0.sy-WALLH);
+  c.lineTo(cX0.sx+TW/2,cX0.sy); c.lineTo(c00.sx,c00.sy-TH/2); c.closePath(); c.fill();
+  /* left wall */
+  c.fillStyle='#F3AECF';
+  c.beginPath();
+  c.moveTo(c00.sx,c00.sy-TH/2-WALLH); c.lineTo(c0Y.sx-TW/2,c0Y.sy-WALLH);
+  c.lineTo(c0Y.sx-TW/2,c0Y.sy); c.lineTo(c00.sx,c00.sy-TH/2); c.closePath(); c.fill();
+  /* window on right wall */
+  const wp=isoS(Math.floor(GX*0.7),0);
+  c.save();
+  c.fillStyle='#BDE3F5';
+  c.beginPath();
+  c.moveTo(wp.sx-TW*0.7, wp.sy-TH/2-WALLH+14);
+  c.lineTo(wp.sx+TW*0.7, wp.sy-WALLH+14+TH*0.7);
+  c.lineTo(wp.sx+TW*0.7, wp.sy-14+TH*0.1);
+  c.lineTo(wp.sx-TW*0.7, wp.sy-TH/2-WALLH+14+(WALLH-28));
+  c.closePath(); c.fill();
+  c.strokeStyle='#fff'; c.lineWidth=3; c.stroke();
+  c.restore();
+  emojiOn(c,'☀️', wp.sx, wp.sy-WALLH+8, TW*0.4);
+  /* wall upgrades */
+  if (S.upgrades.includes('lights')){
+    for (let i=1;i<GX;i+=2){ const p=isoS(i,0); emojiOn(c,'✨',p.sx+TW/4,p.sy-TH/2-WALLH+16,TW*0.32); }
+    for (let i=1;i<GY;i+=2){ const p=isoS(0,i); emojiOn(c,'✨',p.sx-TW/4,p.sy-TH/2-WALLH+16,TW*0.32); }
+  }
+  if (S.upgrades.includes('art')){
+    const p1=isoS(Math.floor(GX*0.4),0); emojiOn(c,'🖼️',p1.sx+TW/4,p1.sy-TH/2-WALLH+40,TW*0.46);
+    const p2=isoS(0,Math.floor(GY*0.5)); emojiOn(c,'🌈',p2.sx-TW/4,p2.sy-TH/2-WALLH+40,TW*0.46);
+  }
+  /* sign */
+  c.font='800 18px "Baloo 2",cursive'; c.textAlign='center'; c.fillStyle='#B93B60';
+  c.fillText(S.logo.emoji+' '+S.shopName+' '+S.logo.emoji, c00.sx, c00.sy-TH/2-WALLH-12);
+  /* floor */
+  for (let x=0;x<GX;x++) for (let y=0;y<GY;y++)
+    diamondOn(c,x,y,(x+y)%2===0?'#FBEAD7':'#F6DDC0','rgba(92,58,33,.08)');
+  /* queue mats + door mat */
+  QUEUE_SPOTS.forEach(q=>diamondOn(c,q.x,q.y,'#FCE0B8','#EAC48F'));
+  diamondOn(c,DOOR.x,DOOR.y,'#B8E0D2','#8FCBB8');
+  const dm=isoS(DOOR.x,DOOR.y); emojiOn(c,'🚪',dm.sx,dm.sy+TH/2+2,TW*0.4);
+}
+function diamondOn(c,x,y,fill,stroke){
+  const {sx,sy}=isoS(x,y);
+  c.beginPath();
+  c.moveTo(sx,sy-TH/2); c.lineTo(sx+TW/2,sy); c.lineTo(sx,sy+TH/2); c.lineTo(sx-TW/2,sy);
+  c.closePath(); c.fillStyle=fill; c.fill();
+  if (stroke){ c.strokeStyle=stroke; c.lineWidth=1; c.stroke(); }
+}
+function emojiOn(c,e,sx,sy,size){
+  c.font=size+'px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
+  c.textAlign='center'; c.textBaseline='alphabetic';
+  c.fillText(e,sx,sy);
+}
+const drawEmoji=(e,sx,sy,size)=>emojiOn(cx,e,sx,sy,size);
+function drawShadow(sx,sy,w){
+  cx.beginPath(); cx.ellipse(sx,sy,w,w*0.4,0,0,Math.PI*2);
+  cx.fillStyle='rgba(92,58,33,.14)'; cx.fill();
+}
+function roundRectPath(c,x,y,w,h,r){
+  c.beginPath();
+  c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r);
+  c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath();
+}
+
+/* =========================================================
+   WALKERS
+========================================================= */
+function makeWalker(face,x,y){ return {face,x,y,path:[],speed:2.3,carry:null}; }
+function walkTo(w,tx,ty){
+  const p=findPath(Math.round(w.x),Math.round(w.y),tx,ty);
+  if (p) w.path=p;
+  else { w.x=tx; w.y=ty; w.path=[]; }
+  return true;
+}
+function stepWalker(w,dt){
+  if (!w.path.length) return;
+  const t=w.path[0], dx=t.x-w.x, dy=t.y-w.y, d=Math.hypot(dx,dy), mv=w.speed*dt;
+  if (d<=mv){ w.x=t.x; w.y=t.y; w.path.shift(); }
+  else { w.x+=dx/d*mv; w.y+=dy/d*mv; }
+}
+const elise=makeWalker('👧',5,5);
+let staffWalkers=[];
+function syncStaff(){
+  staffWalkers=S.staff.map(k=>{ const w=makeWalker(STAFF[k].ico,2,3); w.role=k; return w; });
+}
+
+/* =========================================================
+   CUSTOMERS — the pipeline
+========================================================= */
+let customers=[], custId=0, deliveries=[];
+function fixedTables(){ return S.tables.map((lvl,i)=>({lvl,i})).filter(t=>t.lvl>=1); }
+function seatTileFor(slotIdx){
+  const p=tableSlots()[slotIdx];
+  for (const [dx,dy] of [[0,1],[1,0],[-1,0],[0,-1]]){
+    const x=p.x+dx,y=p.y+dy;
+    if (inGrid(x,y)&&!blocked(x,y)) return {x,y};
+  }
+  return {x:p.x,y:p.y+1};
+}
+function queueList(){ return customers.filter(c=>c.state==='toQueue'||c.state==='queue').sort((a,b)=>a.qIdx-b.qIdx); }
+function makeOrder(kid){
+  const menu=S.unlockedItems.filter(k=>!ITEMS[k].party);
+  const hasParty=S.unlockedItems.includes('animalCake');
+  if (hasParty&&kid&&Math.random()<0.35)
+    return {item:'animalCake', animal:rand(ANIMALS), want:{flavor:rand(CAKE_FLAVORS).id, tiers:2+Math.floor(Math.random()*2)}};
+  const item=rand(menu);
+  if (item==='cake') return {item, want:{flavor:rand(CAKE_FLAVORS).id, tiers:1+Math.floor(Math.random()*(stars()>=3?3:2))}};
+  if (item==='cookie') return {item, want:{shape:rand(COOKIE_SHAPES).id}};
+  if (item==='iceCream') return {item, want:{scoops:1+Math.floor(Math.random()*3)}};
+  return {item, want:{}};
+}
+function spawnCustomer(){
+  if (S.stations.register<1) return;                 /* no register, no orders */
+  const q=queueList();
+  if (q.length>=QUEUE_SPOTS.length) return;
+  const kid=Math.random()<(S.placed.some(p=>p.type==='playArea')?0.5:0.28);
+  const order=makeOrder(kid);
+  const price=S.prices[order.item], base=ITEMS[order.item].base;
+  if (price>base*2&&Math.random()<0.6){ toast(`😤 "${ITEMS[order.item].name}? Too pricey!"`); return; }
+  const c=makeWalker(kid?rand(KID_FACES):rand(ADULT_FACES),DOOR.x,DOOR.y);
+  c.id=++custId; c.kid=kid; c.order=order; c.party=order.item==='animalCake';
+  c.state='toQueue'; c.qIdx=q.length;
+  let patience=90+(S.staff.includes('waitress')?45:0);
+  if (kid&&S.placed.some(p=>p.type==='playArea')) patience+=60;
+  c.patience=patience; c.maxP=patience;
+  const spot=QUEUE_SPOTS[c.qIdx];
+  walkTo(c,spot.x,spot.y);
+  customers.push(c);
+  updateBadge();
+}
+function shiftQueue(){
+  queueList().forEach((c,i)=>{
+    if (c.qIdx!==i){ c.qIdx=i; const s=QUEUE_SPOTS[i]; walkTo(c,s.x,s.y); if (c.state==='queue') c.state='toQueue'; }
+  });
+}
+function takeOrder(c){      /* order accepted → head to a seat */
+  c.state='toSeat';
+  shiftQueue();
+  const free=fixedTables().find(t=>!customers.some(x=>x.seat===t.i&&x!==c));
+  if (free){ c.seat=free.i; const st=seatTileFor(free.i); walkTo(c,st.x,st.y); }
+  else { c.seat=null; walkTo(c,Math.min(GX-2,10),Math.min(GY-2,7)); }
+  updateBadge();
+}
+function updateBadge(){
+  const waiting=queueList().length;
+  const b=$('custBadge'); b.style.display=waiting?'flex':'none'; b.textContent=waiting;
+}
+function removeCustomer(c){
+  customers=customers.filter(x=>x!==c);
+  shiftQueue(); updateBadge();
+}
+function payout(c,amt,party,msg){
+  if (c.seat!=null){ amt += [0,0,2,4][S.tables[c.seat]]||0; }
+  amt += [0,0,2,4][S.stations.register]||0;
+  S.coins+=amt; S.earned+=amt; S.served++;
+  if (party) S.parties++;
+  addStarPts(amt);
+  save(); renderTop(); renderMy();
+  const s=isoS(c.x,c.y);
+  coinFly(s.sx,s.sy-44,amt);
+  c.state='leaving'; walkTo(c,DOOR.x,DOOR.y);
+  if (msg) toast(msg);
+  checkObjectives();
+}
+
+/* =========================================================
+   LOGIC TICK (1s)
+========================================================= */
+let secs=0, ovenGlow=0;
+function logicTick(){
+  secs++;
+  customers.forEach(c=>{
+    if (c.state==='toQueue'&&!c.path.length) c.state='queue';
+    if (c.state==='queue'){
+      c.patience--;
+      if (c.patience<=0){ c.state='leaving'; walkTo(c,DOOR.x,DOOR.y); shiftQueue(); toast('👋 "Bye! Maybe next time!"'); }
+    }
+    if (c.state==='toSeat'&&!c.path.length) c.state='waitingFood';
+    if (c.state==='eating'){ c.eatT--; if (c.eatT<=0){ const amt=c.pendingAmt; c.pendingAmt=0; payout(c,amt,c.party,c.payMsg); } }
+    if (c.state==='leaving'&&!c.path.length) removeCustomer(c);
+  });
+  /* deliveries: deliverer arrived + customer seated → eat */
+  deliveries=deliveries.filter(d=>{
+    const c=customers.find(x=>x.id===d.custId);
+    if (!c){ d.w.carry=null; return false; }
+    if (d.phase==='pickup'){
+      if (!d.w.path.length){
+        d.w.carry=d.ico; d.phase='deliver';
+        const st=c.seat!=null?seatTileFor(c.seat):{x:Math.round(c.x),y:Math.round(c.y)};
+        walkTo(d.w,st.x,st.y);
+      }
+      return true;
+    }
+    if (!d.w.path.length&&(c.state==='waitingFood')){
+      d.w.carry=null;
+      c.state='eating'; c.eatT=3; c.eatIco=d.ico; c.pendingAmt=d.amt; c.payMsg=d.msg;
+      return false;
+    }
+    if (!d.w.path.length&&c.state!=='waitingFood'&&c.state!=='toSeat'){ d.w.carry=null; return false; }
+    return true;
+  });
+  /* spawn */
+  const cap=QUEUE_SPOTS.length;
+  if (queueList().length<cap && Math.random()<0.4) spawnCustomer();
+  /* staff */
+  staffWalkers.forEach(w=>{
+    if (w.role==='baker'){
+      if (w.cook>0){
+        w.cook--; ovenGlow=2;
+        if (w.cook===0&&w.target){
+          const c=customers.find(x=>x.id===w.target);
+          if (c){
+            const st=c.seat!=null?seatTileFor(c.seat):{x:Math.round(c.x),y:Math.round(c.y)};
+            walkTo(w,st.x,st.y);
+            const amt=Math.max(2,Math.floor(S.prices[c.order.item]*0.65));
+            w.carry=ITEMS[c.order.item].ico;
+            deliveries.push({custId:c.id,w,amt,ico:ITEMS[c.order.item].ico,msg:'🧑‍🍳 Baker Ben made it!'});
+          }
+          w.target=null;
+        }
+      } else if (!w.busyWalk&&!deliveries.some(d=>d.w===w)){
+        const front=queueList().find(c=>c.state==='queue');
+        if (front&&S.stations.oven>=1&&secs%5===0){
+          takeOrder(front); w.target=front.id;
+          const op=STATION_POS.oven;
+          walkTo(w,op.x,op.y+1); w.cook=5;
+        } else if (!w.path.length&&Math.random()<0.25) wander(w);
+      }
+    } else if (!deliveries.some(d=>d.w===w)&&!w.path.length&&Math.random()<0.25) wander(w);
+  });
+  /* display case passive sales */
+  const dl=S.stations.display;
+  if (dl>=1){
+    const every=[0,12,9,6][dl], amt=[0,2,3,4][dl];
+    if (secs%every===0){
+      S.coins+=amt; S.earned+=amt; addStarPts(1); save(); renderTop();
+      const p=STATION_POS.display, s=isoS(p.x,p.y);
+      coinFly(s.sx,s.sy-40,amt);
+    }
+  }
+  if (ovenGlow>0) ovenGlow--;
+}
+function wander(w){
+  for (let i=0;i<8;i++){
+    const x=Math.floor(Math.random()*GX), y=Math.floor(Math.random()*GY);
+    if (!blocked(x,y)&&!reservedTile(x,y)){ walkTo(w,x,y); return; }
+  }
+}
+
+/* =========================================================
+   OBJECTIVES — Poppy the guide
+========================================================= */
+const OBJECTIVES = [
+  {text:'Tap the sleepy oven to wake it up! 💤', target:()=>STATION_POS.oven, done:()=>S.stations.oven>=1},
+  {text:'Fix the wobbly cash register! 💰', target:()=>STATION_POS.register, done:()=>S.stations.register>=1},
+  {text:'Tidy up the decorating station! 🎨', target:()=>STATION_POS.deco, done:()=>S.stations.deco>=1},
+  {text:'Fix the wobbly table so guests can sit! 🪑', target:()=>tableSlots()[0], done:()=>S.tables[0]>=1},
+  {text:'A guest is coming! Tap their bubble to take the order! 🛎️', target:()=>QUEUE_SPOTS[0], done:()=>S.served>=1},
+  {text:'Add a display case — it sells treats by itself! 🧁', target:()=>STATION_POS.display, done:()=>S.stations.display>=1},
+  {text:'Buy a new table for more guests! 🪑', target:()=>tableSlots()[1], done:()=>S.tables[1]>=1},
+  {text:'Serve 5 treats to reach ⭐2!', target:()=>QUEUE_SPOTS[0], done:()=>stars()>=2},
+  {text:'Visit the 🛍️ Shop — cookies are waiting!', target:null, done:()=>S.unlockedItems.includes('cookie')},
+  {text:'Hire a helper from the 🛍️ Shop!', target:null, done:()=>S.staff.length>=1},
+  {text:'Upgrade a station — tap any fixed station! ✨', target:()=>STATION_POS.oven, done:()=>S.stations.oven>=2||S.stations.deco>=2||S.stations.register>=2},
+  {text:'Reach ⭐3 — keep serving and upgrading!', target:null, done:()=>stars()>=3},
+  {text:'Throw a birthday party! Unlock Animal Cakes! 🎂', target:null, done:()=>S.parties>=1},
+  {text:'Make your bakery beautiful! You did it all! 💖', target:null, done:()=>false},
+];
+function currentObjective(){ return OBJECTIVES[Math.min(S.objIdx,OBJECTIVES.length-1)]; }
+function checkObjectives(){
+  let advanced=false;
+  while (S.objIdx<OBJECTIVES.length-1 && OBJECTIVES[S.objIdx].done()){
+    S.objIdx++; advanced=true;
+  }
+  if (advanced){ save(); confetti(12); chime(); toast('🧁 "Great job!" — Poppy'); }
+  $('objText').textContent=currentObjective().text;
+}
+
+/* =========================================================
+   DRAWING
+========================================================= */
+let bubbleHits=[], sparkles=[];
+function addSparkle(sx,sy){ sparkles.push({sx,sy,t:1}); }
+function draw(){
+  const w=cv.clientWidth, h=cv.clientHeight;
+  cx.setTransform(DPR,0,0,DPR,0,0);
+  cx.clearRect(0,0,w,h);
+  cx.drawImage(roomCv,0,0,cv.width,cv.height,0,0,w,h);
+  /* rugs */
+  S.placed.filter(p=>p.type==='rug').forEach(p=>diamondOn(cx,p.x,p.y,'#F5A9CB','#E884B4'));
+  /* entities depth-sorted by feet */
+  const ents=[];
+  Object.entries(STATION_POS).forEach(([k,p])=>ents.push({d:p.x+p.y,f:()=>drawStation(k,p)}));
+  tableSlots().forEach((p,i)=>ents.push({d:p.x+p.y,f:()=>drawTable(i,p)}));
+  S.placed.filter(p=>p.type!=='rug').forEach(p=>ents.push({d:p.x+p.y,f:()=>drawFurn(p)}));
+  [elise,...staffWalkers,...customers].forEach(wk=>ents.push({d:wk.x+wk.y,f:()=>drawWalker(wk)}));
+  ents.sort((a,b)=>a.d-b.d);
+  bubbleHits=[];
+  ents.forEach(e=>e.f());
+  /* objective arrow */
+  const obj=currentObjective();
+  if (obj.target){
+    const t=obj.target(), s=isoS(t.x,t.y);
+    const bob=Math.sin(performance.now()/220)*5;
+    drawEmoji('⬇️',s.sx,s.sy-TH*2.2+bob,TW*0.5);
+  }
+  /* sparkles */
+  sparkles=sparkles.filter(sp=>{
+    sp.t-=0.04;
+    if (sp.t<=0) return false;
+    cx.globalAlpha=sp.t;
+    drawEmoji('✨',sp.sx,sp.sy-(1-sp.t)*22,TW*0.32);
+    cx.globalAlpha=1;
+    return true;
+  });
+  if (buildMode&&buildSel){
+    cx.font='800 13px "Baloo 2"'; cx.fillStyle='#B93B60'; cx.textAlign='center';
+    cx.fillText('Tap a tile to place: '+FURN[buildSel].name,w/2,h-8);
+  }
+}
+function sleepyFx(sx,sy){
+  const bob=Math.sin(performance.now()/300)*3;
+  drawEmoji('💤',sx+TW*0.3,sy-TH*1.6+bob,TW*0.4);
+}
+function drawStation(k,p){
+  const {sx,sy}=isoS(p.x,p.y);
+  const lvl=S.stations[k];
+  const sleepy=lvl<=0;
+  cx.save();
+  if (sleepy) cx.globalAlpha=0.85;
+  if (k==='oven'){
+    drawShadow(sx,sy+2,TW*0.38);
+    const bodies=['#9A9A9A','#E8577E','#E0356B','#E8577E'];
+    cx.fillStyle=sleepy?'#9A9A9A':bodies[lvl];
+    roundRectPath(cx,sx-TW*0.36,sy-TH*1.5,TW*0.72,TH*1.6,8); cx.fill();
+    if (lvl===3){ cx.fillStyle='rgba(255,255,255,.35)'; roundRectPath(cx,sx-TW*0.36,sy-TH*1.5,TW*0.72,TH*0.4,8); cx.fill(); }
+    cx.fillStyle=sleepy?'#6E6E6E':'#5C2338';
+    roundRectPath(cx,sx-TW*0.24,sy-TH*1.2,TW*0.48,TH*0.7,6); cx.fill();
+    if (!sleepy&&(ovenGlow>0)) drawEmoji('🔥',sx,sy-TH*0.62,TW*0.36);
+    else if (!sleepy) drawEmoji('🎂',sx,sy-TH*0.62,TW*0.3);
+    if (lvl===3){ if (Math.random()<0.05) addSparkle(sx,sy-TH*1.4); }
+  } else if (k==='deco'){
+    drawShadow(sx,sy+2,TW*0.36);
+    cx.fillStyle=sleepy?'#9A9A9A':'#D9A05B';
+    roundRectPath(cx,sx-TW*0.36,sy-TH*0.9,TW*0.72,TH,7); cx.fill();
+    cx.fillStyle=sleepy?'#B5B5B5':'#FDF1DC';
+    roundRectPath(cx,sx-TW*0.32,sy-TH*1.0,TW*0.64,TH*0.28,5); cx.fill();
+    if (!sleepy){
+      drawEmoji('🎨',sx-TW*0.14,sy-TH*0.42,TW*0.26);
+      drawEmoji(lvl>=3?'🌟':'🧁',sx+TW*0.14,sy-TH*0.42,TW*0.26);
+    } else drawEmoji('🕸️',sx,sy-TH*0.5,TW*0.3);
+  } else if (k==='register'){
+    drawShadow(sx,sy+2,TW*0.34);
+    cx.fillStyle=sleepy?'#9A9A9A':(lvl>=3?'#E8B94A':'#8A5A44');
+    roundRectPath(cx,sx-TW*0.32,sy-TH*0.9,TW*0.64,TH,7); cx.fill();
+    drawEmoji(sleepy?'🕸️':'💰',sx,sy-TH*0.42,TW*0.3);
+    if (!sleepy&&lvl>=3&&Math.random()<0.03) addSparkle(sx,sy-TH*1.1);
+  } else if (k==='display'){
+    if (lvl<0){
+      cx.globalAlpha=0.5;
+      cx.setLineDash([5,4]); cx.strokeStyle='#B93B60'; cx.lineWidth=2;
+      roundRectPath(cx,sx-TW*0.34,sy-TH*1.1,TW*0.68,TH*1.1,7); cx.stroke(); cx.setLineDash([]);
+      drawEmoji('🪧',sx,sy-TH*0.3,TW*0.36);
+      cx.restore(); return;
+    }
+    drawShadow(sx,sy+2,TW*0.36);
+    cx.fillStyle='#D9A05B'; roundRectPath(cx,sx-TW*0.36,sy-TH*1.2,TW*0.72,TH*1.2,6); cx.fill();
+    cx.fillStyle='#FDF1DC'; roundRectPath(cx,sx-TW*0.30,sy-TH*1.1,TW*0.60,TH*0.65,5); cx.fill();
+    const goods=[[],['🧁'],['🧁','🍩'],['🧁','🍩','🍰']][lvl];
+    goods.forEach((gc,i)=>drawEmoji(gc,sx+(i-(goods.length-1)/2)*TW*0.2,sy-TH*0.6,TW*0.22));
+  }
+  cx.restore();
+  if (sleepy&&!(k==='display'&&lvl<0)) sleepyFx(sx,sy);
+}
+function drawTable(i,p){
+  const {sx,sy}=isoS(p.x,p.y);
+  const lvl=S.tables[i];
+  if (lvl<0){
+    cx.save(); cx.globalAlpha=0.45;
+    cx.setLineDash([5,4]); cx.strokeStyle='#B93B60'; cx.lineWidth=2;
+    cx.beginPath(); cx.ellipse(sx,sy-TH*0.3,TW*0.3,TH*0.45,0,0,Math.PI*2); cx.stroke();
+    cx.setLineDash([]);
+    drawEmoji('🪧',sx,sy,TW*0.3);
+    cx.restore(); return;
+  }
+  cx.save();
+  if (lvl===0){ cx.globalAlpha=0.85; cx.translate(sx,sy); cx.rotate(-0.09); cx.translate(-sx,-sy); }
+  drawShadow(sx,sy+2,TW*0.32);
+  cx.fillStyle=lvl===0?'#8B8B8B':'#E8577E';
+  cx.fillRect(sx-3,sy-TH*0.55,6,TH*0.7);
+  cx.beginPath(); cx.ellipse(sx,sy-TH*0.6,TW*0.34,TH*0.52,0,0,Math.PI*2);
+  cx.fillStyle=lvl===0?'#C9C9C9':'#FFFFFF'; cx.fill();
+  cx.beginPath(); cx.ellipse(sx,sy-TH*0.66,TW*0.28,TH*0.42,0,0,Math.PI*2);
+  cx.fillStyle=lvl===0?'#B5B5B5':(lvl>=3?'#FFE39A':lvl>=2?'#FFD9EA':'#FDECF4'); cx.fill();
+  if (lvl>=1) drawEmoji(lvl>=3?'👑':lvl>=2?'🌸':'🌼',sx,sy-TH*0.55,TW*0.26);
+  cx.restore();
+  if (lvl===0) sleepyFx(sx,sy);
+}
+function drawFurn(p){
+  const {sx,sy}=isoS(p.x,p.y);
+  drawShadow(sx,sy+2,TW*0.3);
+  drawEmoji(FURN[p.type].ico,sx,sy+2,TW*0.62);
+  if (buildMode) drawEmoji('✋',sx+TW*0.24,sy-TH*0.8,TW*0.3);
+}
+function drawWalker(wk){
+  const {sx,sy}=isoS(wk.x,wk.y);
+  const moving=wk.path.length>0;
+  const t=performance.now()/95;
+  const bob=moving?Math.sin(t)*2.4:Math.sin(t/3)*1;
+  const squash=moving?1+Math.sin(t)*0.05:1;
+  drawShadow(sx,sy+3,TW*0.24);
+  cx.save();
+  cx.translate(sx,sy+2+bob);
+  cx.scale(2-squash,squash);
+  emojiOn(cx,wk.face,0,0,TW*0.6);
+  cx.restore();
+  if (wk===elise){
+    const cos=COSTUMES.find(c=>c.id===S.costume)||COSTUMES[0];
+    drawEmoji(cos.ico,sx+TW*0.2,sy-TH*0.85+bob,TW*0.3);
+  }
+  if (wk.carry) drawEmoji(wk.carry,sx+TW*0.22,sy-TH*1.0+bob,TW*0.36);
+  if (wk.party&&wk.state!=='leaving') drawEmoji('🎈',sx-TW*0.24,sy-TH*0.9+bob,TW*0.32);
+  /* bubbles */
+  if (wk.order&&(wk.state==='queue'||wk.state==='toQueue')){
+    const bw=TW*1.0,bh=TH*1.4,bx=sx-bw/2,by=sy-TH*0.9-bh-8;
+    cx.fillStyle='#fff'; roundRectPath(cx,bx,by,bw,bh,10); cx.fill();
+    cx.beginPath(); cx.moveTo(sx-5,by+bh); cx.lineTo(sx+5,by+bh); cx.lineTo(sx,by+bh+7); cx.closePath(); cx.fill();
+    const o=wk.order;
+    let bub=ITEMS[o.item].ico;
+    if (o.item==='cake') bub=CAKE_FLAVORS.find(f=>f.id===o.want.flavor).ico+'×'+o.want.tiers;
+    if (o.item==='animalCake') bub=o.animal.ico+'🎂';
+    if (o.item==='cookie') bub='🍪'+COOKIE_SHAPES.find(s=>s.id===o.want.shape).ico;
+    if (o.item==='iceCream') bub='🍦×'+o.want.scoops;
+    cx.font=(TW*0.28)+'px "Segoe UI Emoji","Apple Color Emoji",sans-serif';
+    cx.fillStyle='#5C3A21'; cx.textAlign='center';
+    cx.fillText(bub,sx,by+bh*0.52);
+    const hf=wk.patience/wk.maxP;
+    cx.font='800 '+(TW*0.16)+'px "Baloo 2"';
+    cx.fillText('💗'.repeat(Math.max(1,Math.ceil(hf*3))),sx,by+bh*0.9);
+    bubbleHits.push({x:bx-6,y:by-6,w:bw+12,h:bh+TH*1.3+16,id:wk.id});
+  }
+  if (wk.state==='waitingFood') drawEmoji('⏳',sx,sy-TH*1.4+bob,TW*0.34);
+  if (wk.state==='eating'){ drawEmoji(wk.eatIco||'🍰',sx-TW*0.2,sy-TH*1.2,TW*0.3); drawEmoji('😋',sx+TW*0.2,sy-TH*1.4+bob,TW*0.3); }
+}
+
+/* frame loop */
+let lastT=performance.now();
+function frame(now){
+  const dt=Math.min(0.05,(now-lastT)/1000); lastT=now;
+  [elise,...staffWalkers,...customers].forEach(w=>stepWalker(w,dt));
+  if ($('scr-world').classList.contains('active')) draw();
+  requestAnimationFrame(frame);
+}
+
+/* =========================================================
+   WORLD INPUT
+========================================================= */
+let buildMode=false, buildSel=null;
+cv.addEventListener('pointerdown',ev=>{
+  const r=cv.getBoundingClientRect();
+  const px=ev.clientX-r.left, py=ev.clientY-r.top;
+  for (const b of bubbleHits){
+    if (px>=b.x&&px<=b.x+b.w&&py>=b.y&&py<=b.y+b.h){
+      const c=customers.find(x=>x.id===b.id);
+      if (c&&(c.state==='queue'||c.state==='toQueue')){
+        if (S.stations.oven<1){ toast('Wake up the oven first! 💤'); return; }
+        if (S.stations.deco<1){ toast('Tidy the decorating station first! 🎨'); return; }
+        openStudioFor(c); return;
+      }
+    }
+  }
+  const t=screenToIso(px,py);
+  if (!inGrid(t.x,t.y)) return;
+  const st=stationAt(t.x,t.y);
+  if (st&&!buildMode){ openSheet(st); return; }
+  if (buildMode){
+    const f=furnAt(t.x,t.y);
+    if (f){ S.placed=S.placed.filter(p=>p!==f); S.inventory[f.type]=(S.inventory[f.type]||0)+1; save(); renderTray(); chime(); return; }
+    if (buildSel&&(S.inventory[buildSel]||0)>0&&!blocked(t.x,t.y)&&!reservedTile(t.x,t.y)){
+      S.placed.push({type:buildSel,x:t.x,y:t.y});
+      S.inventory[buildSel]--;
+      if (!S.inventory[buildSel]) buildSel=null;
+      save(); renderTray(); bigChime();
+    }
+    return;
+  }
+  if (!blocked(t.x,t.y)){ walkTo(elise,t.x,t.y); beep(500,.05); }
+});
+$('buildBtn').onclick=()=>{
+  buildMode=!buildMode;
+  $('buildBtn').classList.toggle('on',buildMode);
+  $('buildTray').classList.toggle('show',buildMode);
+  if (buildMode) renderTray();
+  beep(700,.06);
+};
+function renderTray(){
+  const keys=Object.keys(S.inventory).filter(k=>S.inventory[k]>0);
+  $('trayItems').innerHTML=keys.length?keys.map(k=>`
+    <button class="tray-item ${buildSel===k?'sel':''}" onclick="selBuild('${k}')">
+      <div class="ti">${FURN[k].ico}</div><div class="tn">${FURN[k].name}</div><div class="tc">×${S.inventory[k]}</div>
+    </button>`).join('')
+    :'<div style="font-weight:800;color:var(--choc-soft);font-size:13px;padding:8px;text-align:center;width:100%">Nothing to place — buy decorations in the 🛍️ Shop!</div>';
+}
+window.selBuild=function(k){ buildSel=buildSel===k?null:k; renderTray(); chime(); };
+
+/* =========================================================
+   STATION SHEET
+========================================================= */
+let sheetKey=null;
+function openSheet(key){
+  sheetKey=key;
+  renderSheet();
+  $('sheetWrap').classList.add('show');
+  beep(650,.06);
+}
+function sheetInfo(key){
+  if (key.startsWith('table')){
+    const i=parseInt(key.slice(5),10), lvl=S.tables[i];
+    const tier=TABLE_TIERS[Math.max(0,lvl)];
+    return {
+      ico: lvl<0?'🪧':'🪑', name: lvl<0?'Empty Table Spot':tier.name.replace(' 💤',''),
+      lvl, max:3,
+      tierTxt: lvl<0?'For sale!':(lvl===0?'Needs fixing! 💤':'Tier '+lvl+' of 3'),
+      perk: lvl<0?'Buy a table for more guests!':(lvl<3?TABLE_TIERS[lvl+1].perk:'All maxed out — royal!'),
+      cost: lvl<0?TABLE_BUY_COST[i]:(lvl===0?TABLE_BUY_COST[0]:(lvl<3?TABLE_TIERS[lvl+1].cost:0)),
+      btn: lvl<0?'Buy table!':(lvl===0?'Fix it!':(lvl<3?'Upgrade!':'✨ MAX ✨')),
+    };
+  }
+  const def=STATIONS[key], lvl=S.stations[key];
+  return {
+    ico:def.ico, name:def.name, lvl, max:3,
+    tierTxt: lvl<0?'Not here yet!':(lvl===0?def.tiers[0].name:def.tiers[lvl].name+' — Tier '+lvl+' of 3'),
+    perk: lvl<0?def.tiers[0].perk:(lvl===0?def.tiers[0].perk:(lvl<3?'Next: '+def.tiers[lvl+1].perk:'All maxed out! ✨')),
+    cost: lvl<=0?def.fixCost:(lvl<3?def.tiers[lvl+1].cost:0),
+    btn: lvl<0?'Add it!':(lvl===0?'Fix it!':(lvl<3?'Upgrade!':'✨ MAX ✨')),
+  };
+}
+function renderSheet(){
+  const info=sheetInfo(sheetKey);
+  $('sheetIco').textContent=info.ico;
+  $('sheetName').textContent=info.name;
+  $('sheetTier').textContent=info.tierTxt;
+  $('sheetPerk').textContent=info.perk;
+  const btn=$('sheetBtn');
+  btn.classList.toggle('maxed',info.lvl>=3);
+  if (info.lvl>=3){ btn.textContent='✨ MAX ✨'; btn.disabled=true; }
+  else {
+    btn.textContent=info.btn+'  🪙 '+info.cost;
+    btn.disabled=S.coins<info.cost;
+  }
+}
+$('sheetBtn').onclick=()=>{
+  const info=sheetInfo(sheetKey);
+  if (info.lvl>=3||S.coins<info.cost) return;
+  S.coins-=info.cost;
+  if (sheetKey.startsWith('table')){
+    const i=parseInt(sheetKey.slice(5),10);
+    S.tables[i]=Math.max(1,S.tables[i]+1);
+  } else {
+    S.stations[sheetKey]=Math.max(1,S.stations[sheetKey]+1);
+  }
+  addStarPts(15);
+  save(); renderTop(); renderSheet();
+  confetti(18); bigChime();
+  const pos=sheetKey.startsWith('table')?tableSlots()[parseInt(sheetKey.slice(5),10)]:STATION_POS[sheetKey];
+  const s=isoS(pos.x,pos.y);
+  for (let i=0;i<4;i++) addSparkle(s.sx+(Math.random()-0.5)*TW,s.sy-Math.random()*TH*1.5);
+  toast(info.lvl<=0?'✨ All fixed up! ✨':'⬆️ Upgraded! So fancy!');
+  checkObjectives();
+};
+$('sheetClose').onclick=()=>$('sheetWrap').classList.remove('show');
+$('sheetWrap').addEventListener('pointerdown',ev=>{ if (ev.target===$('sheetWrap')) $('sheetWrap').classList.remove('show'); });
+
+/* =========================================================
+   DESIGN STUDIO  (tools gated by decorating station tier)
+========================================================= */
+function decoTier(){ return Math.max(1,S.stations.deco); }
+function allowedFrostings(){ return decoTier()>=2?FROSTINGS:FROSTINGS.slice(0,4); }
+function allowedToppings(){ return decoTier()>=3?TOPPINGS:TOPPINGS.slice(0,decoTier()>=2?6:4); }
+function drizzleAllowed(){ return decoTier()>=2; }
+function topperAllowed(){ return decoTier()>=3; }
+function ovenTapPower(){ return [12,12,17,23][Math.max(1,S.stations.oven)]; }
+
+let ST=null;
+function openStudioFor(cust){
+  const o=cust.order;
+  ST={cust,custId:cust.id,item:o.item,practice:false,
+    tiers:o.item==='iceCream'?0:(o.want.tiers||2),
+    flavors:['choc','choc','choc'],frosts:[FROSTINGS[0],FROSTINGS[1],FROSTINGS[4]],
+    shape:'circle',dough:'sugar',icing:FROSTINGS[0],
+    base:'cone',scoops:[],
+    drizzle:'none',decos:[],topper:'none',animalOn:false,
+    tool:null,selTier:0,baked:false,step:0};
+  openStudio();
+}
+function openPractice(item){
+  ST={cust:null,custId:null,item,practice:true,
+    tiers:2,flavors:['choc','vanilla','rainbow'],frosts:[FROSTINGS[0],FROSTINGS[1],FROSTINGS[4]],
+    shape:'circle',dough:'sugar',icing:FROSTINGS[0],
+    base:'cone',scoops:[],
+    drizzle:'none',decos:[],topper:'none',animalOn:false,
+    tool:null,selTier:0,baked:false,step:0};
+  $('picker').classList.remove('show');
+  openStudio();
+}
+function stepsFor(){ return ST.item==='iceCream'?['🍦 Scoop','🎨 Decorate','🛎️ Serve']:['🧁 Build','🔥 Bake','🎨 Decorate','🛎️ Serve']; }
+function openStudio(){
+  $('studio').classList.add('show');
+  const c=ST.cust;
+  if (ST.practice) $('stTitle').textContent='🎨 Practice Kitchen';
+  else if (ST.item==='animalCake') $('stTitle').textContent=`${c.face} "A ${c.order.animal.name} ${c.order.want.tiers}-tier birthday cake!"`;
+  else if (ST.item==='cake') $('stTitle').textContent=`${c.face} "A ${CAKE_FLAVORS.find(f=>f.id===c.order.want.flavor).name.toLowerCase()} cake, ${c.order.want.tiers} tiers!"`;
+  else if (ST.item==='cookie') $('stTitle').textContent=`${c.face} "A ${c.order.want.shape} cookie please!"`;
+  else $('stTitle').textContent=`${c.face} "${c.order.want.scoops} scoops of ice cream!"`;
+  renderStudio();
+}
+$('stClose').onclick=()=>{ $('studio').classList.remove('show'); ST=null; };
+
+function renderSteps(){
+  $('stSteps').innerHTML=stepsFor().map((s,i)=>
+    `<div class="st-step ${i===ST.step?'on':i<ST.step?'done':''}">${s}</div>`).join('');
+}
+function renderStudio(){
+  renderSteps();
+  const B=$('stBody');
+  const isCake=ST.item==='cake'||ST.item==='animalCake';
+  if (ST.step===0&&ST.item!=='iceCream'){
+    if (isCake){
+      B.innerHTML=`
+        <div class="step-title">Build your cake! 🧁</div>
+        <div class="step-sub">Pick how many tiers, then tap a tier and give it a flavor</div>
+        <div class="tool-row">
+          ${[1,2,3].map(n=>`<button class="tool-btn ${ST.tiers===n?'sel':''}" onclick="setTiers(${n})">🎂<span class="tb-sub">${n} tier${n>1?'s':''}</span></button>`).join('')}
+        </div>
+        <div id="stage">${stageInner()}</div>
+        <div class="tool-label">Tap a tier ☝️ then pick its flavor</div>
+        <div class="tool-row">
+          ${CAKE_FLAVORS.map(f=>`<button class="tool-btn" onclick="setFlavor('${f.id}')">${f.ico}<span class="tb-sub">${f.name}</span></button>`).join('')}
+        </div>
+        <button class="go-btn" onclick="nextStep()">To the oven! 🔥</button>`;
+    } else {
+      B.innerHTML=`
+        <div class="step-title">Roll your cookie! 🍪</div>
+        <div class="step-sub">Pick a shape and a dough</div>
+        <div id="stage">${stageInner()}</div>
+        <div class="tool-label">Shape</div>
+        <div class="tool-row">
+          ${COOKIE_SHAPES.map(s=>`<button class="tool-btn ${ST.shape===s.id?'sel':''}" onclick="setShape('${s.id}')">${s.ico}<span class="tb-sub">${s.name}</span></button>`).join('')}
+        </div>
+        <div class="tool-label">Dough</div>
+        <div class="tool-row">
+          ${COOKIE_DOUGHS.map(d=>`<button class="swatch ${ST.dough===d.id?'sel':''}" style="background:${d.color}" onclick="setDough('${d.id}')"></button>`).join('')}
+        </div>
+        <button class="go-btn" onclick="nextStep()">To the oven! 🔥</button>`;
+    }
+    attachStageEvents(); return;
+  }
+  if (ST.step===0&&ST.item==='iceCream'){
+    B.innerHTML=`
+      <div class="step-title">Scoop it up! 🍦</div>
+      <div class="step-sub">Pick a cone or cup, then tap flavors to stack up to 3 scoops</div>
+      <div class="tool-row">
+        <button class="tool-btn ${ST.base==='cone'?'sel':''}" onclick="setBase('cone')">🍦<span class="tb-sub">Cone</span></button>
+        <button class="tool-btn ${ST.base==='cup'?'sel':''}" onclick="setBase('cup')">🥤<span class="tb-sub">Cup</span></button>
+      </div>
+      <div id="stage">${stageInner()}</div>
+      <div class="tool-label">Tap to add scoops! (${ST.scoops.length}/3)</div>
+      <div class="tool-row">
+        ${SCOOP_FLAVORS.map(f=>`<button class="swatch" style="background:${f.color}" onclick="addScoop('${f.id}')"></button>`).join('')}
+        <button class="tool-btn" onclick="popScoop()">↩️<span class="tb-sub">Undo</span></button>
+      </div>
+      <button class="go-btn" onclick="nextStep()">Decorate! 🎨</button>`;
+    attachStageEvents(); return;
+  }
+  if (ST.step===1&&ST.item!=='iceCream'){
+    const pow=ovenTapPower();
+    B.innerHTML=`
+      <div class="step-title">Baking time! 🔥</div>
+      <div class="step-sub">${S.stations.oven>=3?'Your Rainbow Oven bakes SUPER fast!':S.stations.oven>=2?'Your Shiny Oven bakes fast!':'Tap tap tap the oven to fill the bar!'}</div>
+      <div id="bigOven" style="${S.stations.oven>=3?'background:linear-gradient(135deg,#FF6FA5,#FFD166,#6ECEB2);box-shadow:0 8px 0 #B93B60;':''}">
+        <div id="bigOvenWin">${isCake?'🎂':'🍪'}</div>
+        <div id="bigOvenBar"><div id="bigOvenFill"></div></div>
+      </div>
+      <div class="tap-note">👆 Tap the oven!</div>`;
+    let p=0; const ov=$('bigOven');
+    ov.onclick=()=>{
+      p=Math.min(100,p+pow); $('bigOvenFill').style.width=p+'%';
+      ov.classList.remove('shake'); void ov.offsetWidth; ov.classList.add('shake');
+      ovenGlow=2;
+      beep(400+p*3,.05);
+      if (p>=100){ ov.onclick=null; ST.baked=true; bigChime(); setTimeout(nextStep,320); }
+    };
+    return;
+  }
+  const decIdx=ST.item==='iceCream'?1:2;
+  if (ST.step===decIdx){
+    const isCookie=ST.item==='cookie', isIce=ST.item==='iceCream';
+    const party=ST.item==='animalCake';
+    const lockBits=[];
+    if (!drizzleAllowed()) lockBits.push('drizzle');
+    if (!topperAllowed()&&!isCookie&&!isIce) lockBits.push('cake toppers');
+    if (decoTier()<3) lockBits.push('more toppings');
+    B.innerHTML=`
+      <div class="step-title">Decorate it! 🎨</div>
+      <div class="step-sub">${party?'Don’t forget the '+(ST.cust?ST.cust.order.animal.name:'animal')+' face! ':''}Pick a tool, then tap right on the treat!</div>
+      <div id="stage">${stageInner()}</div>
+      <div class="tool-label">${isIce?'Sauce':'Frosting'}${isCake?' (tap a tier first!)':''}</div>
+      <div class="tool-row">
+        ${allowedFrostings().map(f=>`<button class="swatch" style="background:${f}" onclick="applyFrost('${f}')"></button>`).join('')}
+      </div>
+      ${drizzleAllowed()?`
+      <div class="tool-label">Drizzle</div>
+      <div class="tool-row">
+        ${DRIZZLES.map(d=>`<button class="tool-btn ${ST.drizzle===d.id?'sel':''}" onclick="setDrizzle('${d.id}')">${d.id==='none'?'🚫':'〰️'}<span class="tb-sub">${d.name}</span></button>`).join('')}
+      </div>`:''}
+      <div class="tool-label">Toppings — pick one, then tap the treat!</div>
+      <div class="tool-row">
+        ${(party&&ST.cust?[ST.cust.order.animal.ico]:[]).concat(allowedToppings()).map(t=>
+          `<button class="tool-btn ${ST.tool===t?'sel':''}" onclick="setTool('${t}')">${t}</button>`).join('')}
+        <button class="tool-btn ${ST.tool==='ERASE'?'sel':''}" onclick="setTool('ERASE')">🧽<span class="tb-sub">Erase</span></button>
+      </div>
+      ${topperAllowed()&&!isCookie&&!isIce?`
+      <div class="tool-label">Cake topper</div>
+      <div class="tool-row">
+        ${TOPPERS.map(t=>`<button class="tool-btn ${ST.topper===t.id?'sel':''}" onclick="setTopper('${t.id}')">${t.ico}</button>`).join('')}
+      </div>`:''}
+      ${lockBits.length?`<div class="lock-note">🔒 Upgrade your Decorating Station to unlock ${lockBits.join(' + ')}!</div>`:''}
+      <button class="go-btn" onclick="nextStep()">All done! 🛎️</button>`;
+    attachStageEvents(); return;
+  }
+  B.innerHTML=`
+    <div class="step-title">${ST.practice?'Ta-daaa! 🌟':'Serve it up! 🛎️'}</div>
+    <div class="step-sub">${ST.practice?'Beautiful practice bake!':'Walk it over — they can’t wait!'}</div>
+    <div id="stage">${stageInner()}</div>
+    ${ST.practice
+      ?`<button class="go-btn" onclick="closePractice()">Yay! Done 🎉</button>`
+      :`<button class="go-btn" onclick="serveNow()">Serve it! 🛎️</button>`}
+    <button class="go-btn alt" onclick="backToDecorate()">✏️ Keep decorating</button>`;
+}
+window.nextStep=function(){
+  if (ST.item==='iceCream'&&ST.step===0&&!ST.scoops.length){ toast('Add at least 1 scoop! 🍨'); return; }
+  ST.step++; chime(); renderStudio();
+};
+window.backToDecorate=function(){ ST.step=ST.item==='iceCream'?1:2; renderStudio(); };
+window.closePractice=function(){ $('studio').classList.remove('show'); confetti(16); bigChime(); ST=null; };
+window.setTiers=function(n){ ST.tiers=n; ST.selTier=Math.min(ST.selTier,n-1); chime(); renderStudio(); };
+window.setFlavor=function(f){ ST.flavors[ST.selTier]=f; chime(); refreshStage(); };
+window.setShape=function(s){ ST.shape=s; chime(); renderStudio(); };
+window.setDough=function(d){ ST.dough=d; chime(); renderStudio(); };
+window.setBase=function(b){ ST.base=b; chime(); renderStudio(); };
+window.addScoop=function(f){ if (ST.scoops.length>=3){toast('3 scoops max! 🍨');return;} ST.scoops.push(f); chime(); renderStudio(); };
+window.popScoop=function(){ ST.scoops.pop(); beep(300,.06); renderStudio(); };
+window.applyFrost=function(col){
+  if (ST.item==='cake'||ST.item==='animalCake') ST.frosts[ST.selTier]=col;
+  else ST.icing=col;
+  chime(); refreshStage();
+};
+window.setDrizzle=function(d){ ST.drizzle=d; chime(); renderStudio(); };
+window.setTopper=function(t){ ST.topper=t; chime(); refreshStage(); };
+window.setTool=function(t){ ST.tool=ST.tool===t?null:t; renderStudio(); };
+window.selTierFn=function(i){ ST.selTier=i; beep(650,.05); refreshStage(); };
+
+function stageInner(){
+  let html='<div id="stagePlate"></div><div id="product">';
+  const isCake=ST.item==='cake'||ST.item==='animalCake';
+  if (isCake){
+    const widths=[190,150,112], hts=52, n=ST.tiers;
+    for (let i=0;i<n;i++){
+      const fl=CAKE_FLAVORS.find(f=>f.id===ST.flavors[i]);
+      const bg=fl.color==='rainbow'?'background:linear-gradient(90deg,#FF6FA5,#FFD166,#6ECEB2,#BDE3F5,#E4C1F9);':'background:'+fl.color+';';
+      const bottom=24+i*(hts-8);
+      const dz=ST.drizzle!=='none'&&ST.step>=2
+        ?`<div class="drizzle" style="background:repeating-linear-gradient(90deg,${DRIZZLES.find(d=>d.id===ST.drizzle).color} 0 7px,transparent 7px 15px)"></div>`:'';
+      html+=`<div class="tier ${ST.selTier===i?'selT':''}" data-tier="${i}"
+        style="${bg}width:${widths[i]||100}px;height:${hts}px;bottom:${bottom}px;
+        box-shadow:inset 0 9px 0 ${ST.frosts[i]}, inset 0 -6px 0 rgba(0,0,0,.12);">${dz}</div>`;
+    }
+    const topY=24+n*(hts-8)+4;
+    if (ST.animalOn&&ST.cust) html+=`<div class="topper" style="bottom:${topY}px">${ST.cust.order.animal.ico}</div>`;
+    if (ST.topper!=='none') html+=`<div class="topper" style="bottom:${topY+(ST.animalOn?38:0)}px; font-size:30px;">${TOPPERS.find(t=>t.id===ST.topper).ico}</div>`;
+  }
+  else if (ST.item==='cookie'){
+    const d=COOKIE_DOUGHS.find(x=>x.id===ST.dough);
+    const iced=ST.step>=2;
+    const ic=iced?`inset 0 0 0 14px ${d.color}, inset 0 0 0 200px ${ST.icing}`:`inset 0 0 0 200px ${d.color}`;
+    let shapeCss='border-radius:50%;';
+    if (ST.shape==='star') shapeCss='clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);';
+    if (ST.shape==='heart') shapeCss='clip-path:path("M90 160 C 20 110, 0 60, 45 35 C 75 20, 90 45, 90 55 C 90 45, 105 20, 135 35 C 180 60, 160 110, 90 160 Z"); width:180px !important; height:170px !important;';
+    const dz=ST.drizzle!=='none'&&ST.step>=2
+      ?`background-image:repeating-linear-gradient(45deg,${DRIZZLES.find(d2=>d2.id===ST.drizzle).color} 0 5px,transparent 5px 16px);`:'';
+    html+=`<div class="tier" data-tier="0" style="width:175px;height:175px;bottom:28px;${shapeCss}box-shadow:${ic};${dz}background-color:${d.color};"></div>`;
+  }
+  else {
+    if (ST.base==='cone')
+      html+=`<div class="tier" data-tier="0" style="width:76px;height:96px;bottom:22px;background:#D9A05B;clip-path:polygon(50% 100%,4% 0,96% 0);box-shadow:none;border-radius:0;"></div>`;
+    else
+      html+=`<div class="tier" data-tier="0" style="width:104px;height:80px;bottom:22px;background:#F48FB1;border-radius:10px 10px 22px 22px;box-shadow:inset 0 -8px 0 rgba(0,0,0,.1);"></div>`;
+    const start=ST.base==='cone'?108:92;
+    ST.scoops.forEach((s,i)=>{
+      const f=SCOOP_FLAVORS.find(x=>x.id===s);
+      const dz=ST.drizzle!=='none'&&ST.step>=1
+        ?`background-image:radial-gradient(circle at 30% 20%, ${DRIZZLES.find(d=>d.id===ST.drizzle).color} 0 6px, transparent 7px), radial-gradient(circle at 70% 45%, ${DRIZZLES.find(d=>d.id===ST.drizzle).color} 0 5px, transparent 6px);`:'';
+      html+=`<div class="tier" data-tier="0" style="width:${96-i*10}px;height:${72-i*6}px;bottom:${start-14+i*46}px;background-color:${f.color};border-radius:50%;box-shadow:inset 0 -6px 0 rgba(0,0,0,.08);${dz}"></div>`;
+    });
+  }
+  ST.decos.forEach(d=>{ html+=`<div class="deco" style="left:${d.x}%;top:${d.y}%">${d.t}</div>`; });
+  html+='</div>';
+  return html;
+}
+function refreshStage(){
+  const st=$('stage'); if (st){ st.innerHTML=stageInner(); attachStageEvents(); }
+}
+function attachStageEvents(){
+  const st=$('stage'); if (!st) return;
+  st.querySelectorAll('.tier').forEach(el=>{
+    el.addEventListener('pointerdown',ev=>{
+      ev.stopPropagation();
+      const i=parseInt(el.dataset.tier||'0',10);
+      if ((ST.item==='cake'||ST.item==='animalCake')&&ST.step===0){ selTierFn(i); return; }
+      handleStageTap(ev,st);
+    });
+  });
+  st.addEventListener('pointerdown',ev=>handleStageTap(ev,st));
+}
+function handleStageTap(ev,st){
+  const decIdx=ST.item==='iceCream'?1:2;
+  if (ST.step!==decIdx) return;
+  const r=st.getBoundingClientRect();
+  const x=((ev.clientX-r.left)/r.width)*100, y=((ev.clientY-r.top)/r.height)*100;
+  if (x<2||x>98||y<2||y>95) return;
+  if (ST.tool==='ERASE'){
+    let bi=-1,bd=9;
+    ST.decos.forEach((d,i)=>{ const dd=Math.hypot(d.x-x,d.y-y); if (dd<bd){bd=dd;bi=i;} });
+    if (bi>=0){ ST.decos.splice(bi,1); beep(300,.06); refreshStage(); }
+    return;
+  }
+  if (!ST.tool) return;
+  const isAnimalTool=ST.cust&&ST.cust.order.animal&&ST.tool===ST.cust.order.animal.ico;
+  if (isAnimalTool){
+    ST.animalOn=true; bigChime(); toast('🎉 Perfect '+ST.cust.order.animal.name+' face!');
+    refreshStage(); return;
+  }
+  if (ST.decos.length>=14){ toast('So many toppings! 😋'); return; }
+  ST.decos.push({t:ST.tool,x,y});
+  chime(); refreshStage();
+}
+window.serveNow=function(){
+  const c=ST.cust;
+  if (!c||!customers.includes(c)){ toast('Oh no, they left! 🥲'); $('studio').classList.remove('show'); ST=null; return; }
+  const o=c.order;
+  if (o.item==='animalCake'&&!ST.animalOn){ toast('🦁 Add the animal face! Tap it, then tap the cake!'); return; }
+  let amt=S.prices[o.item], msg='😍 "Yummy! Thank you!"';
+  let match=true;
+  if (o.item==='cake'||o.item==='animalCake'){
+    if (!ST.flavors.slice(0,ST.tiers).includes(o.want.flavor)||ST.tiers!==o.want.tiers) match=false;
+  }
+  if (o.item==='cookie'&&ST.shape!==o.want.shape) match=false;
+  if (o.item==='iceCream'&&ST.scoops.length!==o.want.scoops) match=false;
+  if (!match){ amt=Math.max(2,Math.floor(amt/2)); msg='🙂 "Hmm, not what I asked for… but tasty!"'; }
+  let bonus=Math.min(ST.decos.length,8);
+  if (ST.drizzle!=='none') bonus+=2;
+  if (ST.topper!=='none') bonus+=2;
+  if (o.item==='animalCake') bonus+=10;
+  amt+=bonus;
+  const party=o.item==='animalCake';
+  $('studio').classList.remove('show');
+  /* customer heads to a seat; deliverer picks up from deco station */
+  if (c.state==='queue'||c.state==='toQueue') takeOrder(c);
+  const idleW=staffWalkers.find(w=>w.role==='waitress'&&!deliveries.some(d=>d.w===w));
+  const deliverer=idleW||elise;
+  const dp=STATION_POS.deco;
+  walkTo(deliverer,dp.x,dp.y+1);
+  const ico=ITEMS[o.item].ico;
+  deliveries.push({custId:c.id,w:deliverer,amt,ico,phase:'pickup',msg:(party?'🎂 BEST BIRTHDAY EVER!':msg)+'<br>🪙 +'+amt});
+  confetti(party?22:10); bigChime();
+  ST=null;
+};
+
+/* =========================================================
+   PRACTICE PICKER
+========================================================= */
+$('practiceBtn').onclick=()=>{
+  $('pickerRow').innerHTML=S.unlockedItems.map(k=>{
+    const label=k==='animalCake'?'Animal Cake':ITEMS[k].name;
+    return `<button class="tool-btn" style="width:100%;height:70px" onclick="openPractice('${k==='animalCake'?'cake':k}')">${ITEMS[k].ico}<span class="tb-sub">${label}</span></button>`;
+  }).join('');
+  $('picker').classList.add('show');
+};
+$('picker').addEventListener('pointerdown',ev=>{ if (ev.target===$('picker')) $('picker').classList.remove('show'); });
+window.openPractice=openPractice;
+
+/* =========================================================
+   SHOP
+========================================================= */
+function cardHTML(ico,name,sub,btn){ return `<div class="card"><div class="big">${ico}</div><div class="name">${name}</div><div class="sub">${sub}</div>${btn}</div>`; }
+function buyBtn(cost,owned,lockStar,onclick,ownedTxt){
+  if (owned) return `<button class="buy-btn owned" disabled>${ownedTxt||'✔ Got it!'}</button>`;
+  if (lockStar) return `<button class="buy-btn" disabled>🔒 ⭐${lockStar}</button>`;
+  return `<button class="buy-btn" ${S.coins>=cost?'':'disabled'} onclick="${onclick}">🪙 ${cost}</button>`;
+}
+function renderShop(){
+  const s=stars();
+  $('shopTreats').innerHTML=Object.entries(ITEMS).filter(([k,v])=>!v.always).map(([k,v])=>
+    cardHTML(v.ico,v.name,v.party?'Birthday parties! 🎈':'New on the menu!',
+      buyBtn(v.cost,S.unlockedItems.includes(k),v.star>s?v.star:0,`buyItem('${k}')`))).join('');
+  $('shopFurn').innerHTML=Object.entries(FURN).map(([k,v])=>{
+    const count=(S.inventory[k]||0)+S.placed.filter(p=>p.type===k).length;
+    return cardHTML(v.ico,v.name,v.desc+(count?` (×${count})`:''),
+      buyBtn(v.cost,false,v.star>s?v.star:0,`buyFurn('${k}')`));
+  }).join('');
+  $('shopUpgrades').innerHTML=Object.entries(UPGRADES).map(([k,v])=>
+    cardHTML(v.ico,v.name,v.desc,
+      buyBtn(v.cost,S.upgrades.includes(k),v.star>s?v.star:0,`buyUpgrade('${k}')`))).join('');
+  $('shopStaff').innerHTML=Object.entries(STAFF).map(([k,v])=>
+    cardHTML(v.ico,v.name,v.desc,
+      buyBtn(v.cost,S.staff.includes(k),v.star>s?v.star:0,`buyStaff('${k}')`))).join('');
+  $('shopCostumes').innerHTML=COSTUMES.map(c=>{
+    const owned=S.costumes.includes(c.id), wearing=S.costume===c.id;
+    let btn;
+    if (wearing) btn=`<button class="buy-btn owned" disabled>Wearing! 💃</button>`;
+    else if (owned) btn=`<button class="buy-btn" onclick="wear('${c.id}')">Wear it!</button>`;
+    else btn=buyBtn(c.cost,false,0,`buyCostume('${c.id}')`);
+    return cardHTML(c.ico,c.name,'',btn);
+  }).join('');
+}
+window.buyItem=function(k){ const v=ITEMS[k]; if (S.coins<v.cost) return;
+  S.coins-=v.cost; S.unlockedItems.push(k); addStarPts(15); save(); renderAll(); confetti(); bigChime();
+  toast(v.ico+' '+v.name+' added to your menu!'); checkObjectives(); };
+window.buyFurn=function(k){ const v=FURN[k]; if (S.coins<v.cost) return;
+  S.coins-=v.cost; S.inventory[k]=(S.inventory[k]||0)+1; addStarPts(8); save(); renderAll(); bigChime();
+  toast(v.ico+' Bought! Tap 🔨 in your bakery to place it!'); buildSel=k; };
+window.buyUpgrade=function(k){ const v=UPGRADES[k]; if (S.coins<v.cost) return;
+  S.coins-=v.cost; S.upgrades.push(k); addStarPts(15); save();
+  if (k==='expand'){ gridSetup(); resize(); toast('🏗️ Your bakery is BIGGER now!'); }
+  else { buildRoomCache(); toast(v.ico+' '+v.name+' — gorgeous!'); }
+  renderAll(); confetti(20); bigChime(); checkObjectives(); };
+window.buyStaff=function(k){ const v=STAFF[k]; if (S.coins<v.cost) return;
+  S.coins-=v.cost; S.staff.push(k); syncStaff(); addStarPts(15); save(); renderAll(); confetti(); bigChime();
+  toast(v.ico+' '+v.name+' joined your team!'); checkObjectives(); };
+window.buyCostume=function(id){ const c=COSTUMES.find(x=>x.id===id); if (S.coins<c.cost) return;
+  S.coins-=c.cost; S.costumes.push(id); S.costume=id; save(); renderAll(); confetti(); bigChime();
+  toast(c.ico+' New costume: '+c.name+'!'); };
+window.wear=function(id){ S.costume=id; save(); renderAll(); chime(); };
+
+/* =========================================================
+   MY SHOP
+========================================================= */
+function renderMy(){
+  $('nameInput').value=S.shopName;
+  $('logoEmojis').innerHTML=LOGO_EMOJIS.map(e=>
+    `<div class="logo-opt ${S.logo.emoji===e?'sel':''}" onclick="setLogo('${e}')">${e}</div>`).join('');
+  $('logoColors').innerHTML=LOGO_COLORS.map(c=>
+    `<div class="color-dot ${S.logo.color===c?'sel':''}" style="background:${c}" onclick="setLogoColor('${c}')"></div>`).join('');
+  $('priceList').innerHTML=S.unlockedItems.map(k=>{
+    const v=ITEMS[k], p=S.prices[k];
+    const mood=p>v.base*2?'😤':p>v.base*1.4?'😐':'😍';
+    return `<div class="price-row">
+      <div class="p-ico">${v.ico}</div><div class="p-name">${v.name}</div>
+      <div class="stepper">
+        <button onclick="price('${k}',-1)">−</button>
+        <div class="val">🪙${p}</div>
+        <button onclick="price('${k}',1)">+</button>
+      </div>
+      <div class="p-mood">${mood}</div>
+    </div>`;
+  }).join('');
+  const nxt=stars()<5?` (next at ${STAR_PTS[stars()]} — you have ${S.starPts})`:' (MAX!)';
+  $('statsPanel').innerHTML=`
+    <div style="font-weight:800;line-height:2">
+      🧁 Treats served: <b>${S.served}</b><br>
+      🪙 Coins earned: <b>${S.earned}</b><br>
+      🎂 Birthday parties: <b>${S.parties}</b><br>
+      ⭐ Stars: <b>${stars()}</b>${nxt}
+    </div>`;
+}
+window.setLogo=function(e){ S.logo.emoji=e; save(); renderTop(); renderMy(); buildRoomCache(); chime(); };
+window.setLogoColor=function(c){ S.logo.color=c; save(); renderTop(); renderMy(); chime(); };
+window.price=function(k,d){ S.prices[k]=Math.max(1,Math.min(99,S.prices[k]+d)); save(); renderMy(); beep(500,.05); };
+$('nameInput').addEventListener('input',e=>{ S.shopName=e.target.value||"Elise’s Bakery"; save(); renderTop(); buildRoomCache(); });
+$('resetBtn').onclick=function(){
+  if (confirm('Really start the whole bakery over?')){
+    store.del('eliseBakeryV3'); S=DEFAULT(); customers=[]; deliveries=[]; buildSel=null;
+    gridSetup(); resize(); syncStaff(); save(); renderAll(); checkObjectives(); toast('✨ Fresh new bakery!');
+  }
+};
+
+/* =========================================================
+   RENDER / TABS / INIT
+========================================================= */
+function renderTop(){
+  $('coinCount').textContent=S.coins;
+  $('shopNameTop').textContent=S.shopName;
+  $('starPill').textContent='⭐ '+stars();
+  const lg=$('shopLogo'); lg.textContent=S.logo.emoji; lg.style.background=S.logo.color;
+}
+function renderAll(){ renderTop(); renderShop(); renderMy(); renderTray(); }
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active'); $(t.dataset.scr).classList.add('active');
+    if (t.dataset.scr==='scr-world') resize();
+    beep(700,.05);
+  });
+});
+window.addEventListener('resize',resize);
+gridSetup();
+syncStaff();
+renderAll();
+resize();
+checkObjectives();
+setInterval(logicTick,1000);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
