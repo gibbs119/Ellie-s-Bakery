@@ -68,6 +68,11 @@ const FURN = {
   coffee:   {ico:'☕', name:'Coffee Bar',  cost:50, star:3, desc:'Fancy drinks!'},
   sofa:     {ico:'🛋️', name:'Comfy Sofa',  cost:70, star:3, desc:'Lounge in style'},
   fridge:   {ico:'🧊', name:'Treat Fridge',cost:60, star:3, desc:'Keeps treats cool'},
+  washSink: {ico:'🚰', name:'Wash Station',cost:38, star:2, desc:'Wash your hands!'},
+  toilet:   {ico:'🚽', name:'Toilet',      cost:35, star:2, desc:'A little bathroom'},
+  mirror:   {ico:'🪞', name:'Mirror',      cost:24, star:2, desc:'Looking good!'},
+  bathCabinet:{ico:'🚻', name:'Bath Cabinet',cost:30, star:2, desc:'Bathroom storage'},
+  kitchenSink:{ico:'🧼', name:'Kitchen Sink',cost:40, star:3, desc:'For washing up'},
 };
 const UPGRADES = {
   art:   {ico:'🖼️', name:'Wall Art',       cost:45,  star:2, desc:'Paintings on the walls!'},
@@ -390,6 +395,23 @@ function fitAndGround(inst, entry){
   inst.position.y-=box.min.y;                      /* sit on the floor */
   if (entry.yOffset) inst.position.y+=entry.yOffset;
 }
+/* real 3D models for served/carried/displayed treats (falls back to an emoji) */
+const ITEM_MODEL = { cake:'cake-birthday.glb', cookie:'cookie-chocolate.glb', iceCream:'ice-cream.glb', animalCake:'cake-birthday.glb' };
+/* Food-kit models share an external colormap texture; until it's supplied we
+   tint each treat a representative colour so they read right (not blank). */
+const FOOD_TINT = { cake:'#F7C0D8', cookie:'#C08552', iceCream:'#FCEBD2', animalCake:'#F7C0D8' };
+function makeTreatModel(item, size){
+  const g=new THREE.Group();
+  const url=ITEM_MODEL[item];
+  if (!url){ const s=emojiSprite((ITEMS[item]&&ITEMS[item].ico)||'🍽️', size||0.34); s.position.y=(size||0.34)/2; g.add(s); return g; }
+  loadModelTemplate(resolveAssetUrl('assets/models/'+url)).then(tpl=>{
+    const inst=tpl.clone(true); fitAndGround(inst,{fitH:size||0.34});
+    const tint=FOOD_TINT[item];
+    if (tint) inst.traverse(o=>{ if (o.isMesh&&o.material){ o.material=o.material.clone(); o.material.color=new THREE.Color(tint); } });
+    g.add(inst);
+  }).catch(()=>{});
+  return g;
+}
 /* returns a Group immediately; if entry has a glb it loads async and
    swaps the procedural placeholder in-place once ready */
 function buildFromCatalog(entry, proceduralFn){
@@ -404,6 +426,7 @@ function buildFromCatalog(entry, proceduralFn){
       if (entry.tint){ inst.traverse(o=>{ if (o.isMesh&&o.material){ o.material=o.material.clone(); o.material.color=new THREE.Color(entry.tint); } }); }
       g.remove(placeholder); g.add(inst);
       if (entry.accent){ const b=new THREE.Box3().setFromObject(inst); const spr=emojiSprite(entry.accent,0.42); spr.position.set(0, b.max.y+(entry.accentY||0.1), 0); g.add(spr); }
+      if (entry.props){ entry.props.forEach(pr=>{ const sub=buildFromCatalog(pr, ()=>new THREE.Group()); sub.position.set(pr.x||0, pr.y||0, pr.z||0); g.add(sub); }); }
       if (entry.animate && anims.length){
         const mixer=new THREE.AnimationMixer(inst);
         const clip=THREE.AnimationClip.findByName(anims, entry.animate)||anims[0];
@@ -421,7 +444,11 @@ const CATALOG = {
     oven:    { glb:M+'kitchenStove.glb',          fitH:1.35, rotY:Math.PI },
     deco:    { glb:M+'kitchenCabinetDrawer.glb',  fitH:1.0,  rotY:Math.PI, accent:'🎂', accentY:0.15 },
     register:{ glb:M+'kitchenBar.glb',            fitH:1.05, rotY:0,        accent:'💰', accentY:0.1 },
-    display: { glb:M+'kitchenFridgeLarge.glb',    fitH:1.5,  rotY:0, accent:'🧁', accentY:0.12 },
+    display: { glb:M+'kitchenCabinet.glb', fitH:0.95, rotY:Math.PI, props:[
+      {glb:M+'cupcake.glb',         fitH:0.34, x:-0.3,  y:0.98, tint:'#FF9EC4'},
+      {glb:M+'donut-sprinkles.glb', fitH:0.30, x:0.02,  y:0.98, tint:'#F2A9C4'},
+      {glb:M+'cake-birthday.glb',   fitH:0.44, x:0.32,  y:0.98, tint:'#FBD5E4'},
+    ]},
   },
   tables:{
     1:{ glb:M+'tableRound.glb',      fitXZ:0.95 },
@@ -441,6 +468,12 @@ const CATALOG = {
     sofa:     { glb:M+'loungeDesignSofa.glb',     fitXZ:1.1, rotY:Math.PI },
     coffee:   { glb:M+'kitchenCoffeeMachine.glb', fitH:0.6  },
     fridge:   { glb:M+'kitchenFridgeSmall.glb',   fitH:1.15, rotY:Math.PI },
+    // bathroom + handwashing
+    toilet:     { glb:M+'toilet.glb',          fitH:0.85, rotY:Math.PI },
+    washSink:   { glb:M+'bathroomSink.glb',    fitH:0.95, rotY:Math.PI },
+    mirror:     { glb:M+'bathroomMirror.glb',  fitH:0.7,  rotY:Math.PI },
+    bathCabinet:{ glb:M+'bathroomCabinet.glb', fitH:0.9,  rotY:Math.PI },
+    kitchenSink:{ glb:M+'kitchenSink.glb',     fitH:0.95, rotY:Math.PI },
   },
 };
 /* test/diagnostic hook: prove the GLB pipeline end-to-end */
@@ -557,26 +590,12 @@ function buildRoom(){
   if (roomGroup){ scene.remove(roomGroup); disposeGroup(roomGroup); }
   roomGroup=new THREE.Group(); scene.add(roomGroup);
   const wt=WALL_THEMES.find(w=>w.id===S.wallTheme)||WALL_THEMES[0];
-  const roomW=GX, roomD=GY, wallH=3.2;
+  const roomW=GX, roomD=GY, wallH=2.2;
   /* floor */
   const floor=meshOf(new THREE.PlaneGeometry(roomW,roomD), new THREE.MeshStandardMaterial({map:floorTexture(),roughness:0.95}), false);
   floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; roomGroup.add(floor);
-  /* skirting base */
-  const baseY=-0.05;
-  /* back wall (far -z) */
-  const wallMatR=mat(wt.right,{rough:0.98}), wallMatL=mat(wt.left,{rough:0.98});
-  const backWall=meshOf(new THREE.PlaneGeometry(roomW, wallH), wallMatL, false);
-  backWall.position.set(0, wallH/2, -roomD/2); backWall.receiveShadow=true; roomGroup.add(backWall);
-  /* left wall (far -x) */
-  const leftWall=meshOf(new THREE.PlaneGeometry(roomD, wallH), wallMatR, false);
-  leftWall.rotation.y=Math.PI/2; leftWall.position.set(-roomW/2, wallH/2, 0); leftWall.receiveShadow=true; roomGroup.add(leftWall);
-  /* window on back wall */
-  const winG=new THREE.Group();
-  const frame=meshOf(G.box(2.4,1.5,0.12), mat('#FFFFFF')); winG.add(frame);
-  const glass=meshOf(G.box(2.1,1.2,0.14), mat('#BDE3F5',{emissive:'#BDE3F5',emissiveIntensity:0.25}),false); winG.add(glass);
-  const sun=meshOf(G.sph(0.28,12), mat('#FFE066',{emissive:'#FFE066',emissiveIntensity:0.6}),false);
-  sun.position.set(-0.5,0.35,0.1); winG.add(sun);
-  winG.position.set(1.5, 1.9, -roomD/2+0.08); roomGroup.add(winG);
+  /* modular walls built from real GLB pieces, tinted to the wall theme */
+  buildModularWalls(roomGroup, wt, roomW, roomD);
   /* door on front-ish: a little arch at DOOR */
   const dpos=W(DOOR.x,DOOR.y);
   const door=meshOf(G.box(0.9,1.7,0.12), mat('#C77DAE'));
@@ -602,6 +621,30 @@ function buildRoom(){
       b.position.set(-roomW/2+0.5+i*(roomW-1)/5, wallH-0.4, -roomD/2+0.2); roomGroup.add(b);
     }
   }
+}
+function buildModularWalls(parent, wt, roomW, roomD){
+  const yScale=1.7;                       /* native wall is 1.29 tall -> ~2.2 */
+  const winAt=Math.floor(roomW*0.62);     /* one window on the back wall */
+  const doorAt=Math.floor(roomD*0.5);     /* a side doorway on the left wall */
+  function place(url, wx, wz, rotY, tint){
+    loadModelTemplate(resolveAssetUrl('assets/models/'+url)).then(tpl=>{
+      const w=tpl.clone(true);
+      const box=new THREE.Box3().setFromObject(w); const c=new THREE.Vector3(); box.getCenter(c);
+      w.position.x-=c.x; w.position.z-=c.z; w.position.y-=box.min.y;   /* centre + ground */
+      if (tint) w.traverse(o=>{ if (o.isMesh&&o.material){ o.material=o.material.clone(); o.material.color=new THREE.Color(tint); } });
+      const pivot=new THREE.Group(); pivot.add(w);
+      pivot.scale.y=yScale; pivot.rotation.y=rotY; pivot.position.set(wx,0,wz);
+      parent.add(pivot);
+    }).catch(()=>{});
+  }
+  /* back wall along -z, facing the room (+z) */
+  for (let i=0;i<roomW;i++)
+    place(i===winAt?'wallWindow.glb':'wall.glb', i-(roomW-1)/2, -roomD/2, 0, wt.left);
+  /* left wall along -x, facing the room (+x) */
+  for (let j=1;j<roomD;j++)
+    place(j===doorAt?'wallDoorway.glb':'wall.glb', -roomW/2, j-(roomD-1)/2, Math.PI/2, wt.right);
+  /* corner piece to close the seam */
+  place('wallCorner.glb', -roomW/2, -roomD/2, 0, wt.right);
 }
 function emojiTexture(emoji, size=128){
   const cvs=document.createElement('canvas'); cvs.width=cvs.height=size;
@@ -979,7 +1022,7 @@ function logicTick(){
     if (!c){ setCarry(d.w,null); return false; }
     if (d.phase==='pickup'){
       if (!d.w.path.length){
-        setCarry(d.w, d.ico); d.phase='deliver';
+        setCarry(d.w, d.item); d.phase='deliver';
         const st=c.seat!=null?seatTileFor(c.seat):{x:Math.round(c.x),y:Math.round(c.y)};
         walkTo(d.w,st.x,st.y);
       }
@@ -1005,8 +1048,8 @@ function logicTick(){
             const st=c.seat!=null?seatTileFor(c.seat):{x:Math.round(c.x),y:Math.round(c.y)};
             walkTo(w,st.x,st.y);
             const amt=Math.max(2,Math.floor(S.prices[c.order.item]*0.65));
-            setCarry(w, ITEMS[c.order.item].ico);
-            deliveries.push({custId:c.id,w,amt,ico:ITEMS[c.order.item].ico,phase:'deliver',msg:'🧑‍🍳 Baker Ben made it!'});
+            setCarry(w, c.order.item);
+            deliveries.push({custId:c.id,w,amt,item:c.order.item,ico:ITEMS[c.order.item].ico,phase:'deliver',msg:'🧑‍🍳 Baker Ben made it!'});
           }
           w.target=null;
         }
@@ -1037,12 +1080,12 @@ function wander(w){
     if (!blocked(x,y)&&!reservedTile(x,y)){ walkTo(w,x,y); return; }
   }
 }
-function setCarry(w, ico){
-  w.carry=ico;
+function setCarry(w, item){
+  w.carry=item;
   if (!w.obj) return;
   const tray=w.obj.userData.tray;
-  if (w.obj.userData.traySpr){ tray.remove(w.obj.userData.traySpr); w.obj.userData.traySpr=null; }
-  if (ico){ const s=emojiSprite(ico,0.3); s.position.y=0.12; tray.add(s); w.obj.userData.traySpr=s; tray.visible=true; }
+  if (w.obj.userData.trayObj){ tray.remove(w.obj.userData.trayObj); w.obj.userData.trayObj=null; }
+  if (item){ const m=makeTreatModel(item,0.3); m.position.y=0.04; tray.add(m); w.obj.userData.trayObj=m; tray.visible=true; }
   else tray.visible=false;
 }
 
@@ -1662,7 +1705,7 @@ function serveNow(){
   const deliverer=idleW||elise;
   const dp=STATION_POS.deco; walkTo(deliverer,dp.x,dp.y+1);
   const ico=ITEMS[o.item].ico;
-  deliveries.push({custId:c.id,w:deliverer,amt,ico,phase:'pickup',msg:(party?'🎂 BEST BIRTHDAY EVER!':msg)+'<br>🪙 +'+amt});
+  deliveries.push({custId:c.id,w:deliverer,amt,item:o.item,ico,phase:'pickup',msg:(party?'🎂 BEST BIRTHDAY EVER!':msg)+'<br>🪙 +'+amt});
   confetti(party?22:10); bigChime();
 }
 
