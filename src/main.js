@@ -268,17 +268,37 @@ function setMuted(m){
 ========================================================= */
 let GX=12, GY=9;
 let DOOR={x:6,y:8};
-const STATION_POS = { oven:{x:1,y:1}, deco:{x:3,y:1}, display:{x:5,y:1}, register:{x:9,y:2} };
-const QUEUE_SPOTS = [{x:9,y:4},{x:9,y:5},{x:9,y:6}];
+/* Two zones split by a display-counter divider row (DIV_Y):
+   kitchen (baking area) is behind it (y<DIV_Y), the restaurant/dining area is
+   in front (y>DIV_Y). Staff cross through gaps at the ends of the divider. */
+let DIV_Y=4, DIVIDER_GAPS=[0,11];
+let STATION_POS = { oven:{x:1,y:1}, deco:{x:3,y:1}, display:{x:5,y:4}, register:{x:9,y:4} };
+let QUEUE_SPOTS = [{x:9,y:5},{x:9,y:6},{x:9,y:7}];
+function gridSetup(){
+  const expand=S.upgrades.includes('expand');
+  GX = expand ? 14 : 12;
+  GY = expand ? 11 : 9;
+  DIV_Y = Math.max(3, Math.floor(GY*0.45));            /* 4 (small) / 4 (big) */
+  DOOR = {x:Math.floor(GX/2), y:GY-1};
+  /* kitchen stations along the back */
+  STATION_POS.oven = {x:1, y:1};
+  STATION_POS.deco = {x:3, y:1};
+  /* register + main display case sit on the divider, facing the diners */
+  STATION_POS.register = {x:GX-3, y:DIV_Y};
+  STATION_POS.display  = {x:Math.floor(GX/2)-1, y:DIV_Y};
+  /* guests line up in front of the register (dining side) */
+  QUEUE_SPOTS = [{x:GX-3,y:DIV_Y+1},{x:GX-3,y:DIV_Y+2},{x:GX-3,y:DIV_Y+3}];
+  /* staff pass-through gaps at both ends of the counter */
+  DIVIDER_GAPS = [0, GX-1];
+}
 function tableSlots(){
-  const base=[{x:3,y:4},{x:6,y:6},{x:10,y:7},{x:2,y:7}];
-  if (S.upgrades.includes('expand')) base.push({x:12,y:4},{x:6,y:9});
+  const a=DIV_Y+2, b=GY-2;                              /* dining rows */
+  const base=[{x:2,y:a},{x:5,y:a},{x:8,y:b},{x:2,y:b}];
+  if (S.upgrades.includes('expand')) base.push({x:GX-2,y:a},{x:5,y:b});
   return base;
 }
-function gridSetup(){
-  GX = S.upgrades.includes('expand') ? 14 : 12;
-  GY = S.upgrades.includes('expand') ? 11 : 9;
-  DOOR = {x:Math.floor(GX/2), y:GY-1};
+function dividerBlocked(x,y){
+  return y===DIV_Y && !DIVIDER_GAPS.includes(x);
 }
 function inGrid(x,y){ return x>=0&&y>=0&&x<GX&&y<GY; }
 function stationAt(x,y){
@@ -295,10 +315,12 @@ function blocked(x,y){
     if (st.startsWith('table')) return S.tables[parseInt(st.slice(5),10)]>=0;
     return true;
   }
+  if (dividerBlocked(x,y)) return true;   /* the counter separates the rooms */
   const f=furnAt(x,y); return !!(f && !FURN[f.type].walkable);
 }
 function reservedTile(x,y){
   if (stationAt(x,y)) return true;
+  if (dividerBlocked(x,y)) return true;
   if (x===DOOR.x&&y===DOOR.y) return true;
   return QUEUE_SPOTS.some(q=>q.x===x&&q.y===y);
 }
@@ -444,7 +466,7 @@ const CATALOG = {
     oven:    { glb:M+'kitchenStove.glb',          fitH:1.35, rotY:Math.PI },
     deco:    { glb:M+'kitchenCabinetDrawer.glb',  fitH:1.0,  rotY:Math.PI, accent:'🎂', accentY:0.15 },
     register:{ glb:M+'kitchenBar.glb',            fitH:1.05, rotY:0,        accent:'💰', accentY:0.1 },
-    display: { glb:M+'kitchenCabinet.glb', fitH:0.95, rotY:Math.PI, props:[
+    display: { glb:M+'kitchenCabinet.glb', fitH:0.95, rotY:0, props:[
       {glb:M+'cupcake.glb',         fitH:0.34, x:-0.3,  y:0.98, tint:'#FF9EC4'},
       {glb:M+'donut-sprinkles.glb', fitH:0.30, x:0.02,  y:0.98, tint:'#F2A9C4'},
       {glb:M+'cake-birthday.glb',   fitH:0.44, x:0.32,  y:0.98, tint:'#FBD5E4'},
@@ -1839,7 +1861,23 @@ function renderTop(){
   const lg=$('shopLogo'); lg.textContent=S.logo.emoji; lg.style.background=S.logo.color;
 }
 function renderAll(){ renderTop(); renderShop(); renderMy(); renderTray(); }
-function rebuildWorld(){ buildRoom(); buildStations(); buildTables(); syncFurniture(); }
+/* the display-counter divider separating the baking area from the restaurant */
+let dividerGroup=null;
+function buildDivider(){
+  if (dividerGroup){ scene.remove(dividerGroup); disposeGroup(dividerGroup); }
+  dividerGroup=new THREE.Group(); scene.add(dividerGroup);
+  const treats=[ ['cupcake.glb','#FF9EC4'], ['donut-sprinkles.glb','#F2A9C4'], ['cake-birthday.glb','#FBD5E4'], ['croissant.glb','#E7B96B'], ['muffin.glb','#C8A0FF'] ];
+  let ti=0;
+  for (let x=0;x<GX;x++){
+    if (DIVIDER_GAPS.includes(x)) continue;
+    if (stationAt(x,DIV_Y)) continue;                 /* register / display render separately */
+    const showTreats = x%2===0;
+    const props = showTreats ? [(()=>{ const [gl,tn]=treats[ti++%treats.length]; return {glb:M+gl, fitH:0.32, y:0.98, tint:tn}; })()] : undefined;
+    const g=buildFromCatalog({glb:M+'kitchenBar.glb', fitH:0.95, rotY:0, tint:'#FFFBF3', props}, ()=>new THREE.Group());
+    const p=W(x,DIV_Y); g.position.set(p.x,0,p.z); dividerGroup.add(g);
+  }
+}
+function rebuildWorld(){ buildRoom(); buildStations(); buildTables(); buildDivider(); syncFurniture(); }
 document.querySelectorAll('.tab').forEach(t=>{
   t.addEventListener('click',()=>{
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
