@@ -4,7 +4,6 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { cloudMirror } from './save';
 
 /* animation mixers for any loaded rigged GLB models, ticked each frame */
 const mixers = [];
@@ -200,7 +199,7 @@ const SKINS = ['#F7C69B','#F1D2B6','#E8B183','#C68642','#8D5524','#5C3A2E'];
 const HAIRS = ['#6B3F2A','#2E2E2E','#C9A24B','#B5651D','#A64B9B','#4B6FA6','#FF6FA5','#E84E8A','#6ECEB2'];
 const OUTFITS = ['#FF6FA5','#6ECEB2','#FFD166','#BDE3F5','#E4C1F9','#FFB4A2','#C8A0FF','#9AD0EC','#F48FB1'];
 const TABLECLOTHS = [null,'#FF9EC4','#A8E6CF','#BDE3F5','#E4C1F9','#FFD166','#FFB4A2','#C8A0FF'];
-function save(){ const j=JSON.stringify(S); store.set('eliseBakery3D', j); try{ cloudMirror(j); }catch(e){} }
+function save(){ store.set('eliseBakery3D', JSON.stringify(S)); }
 
 /* =========================================================
    HELPERS

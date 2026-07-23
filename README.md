@@ -4,9 +4,9 @@ A sweet, kid-friendly bakery tycoon game — in **3D**! Built for a 7-year-old t
 run their own bakery: bake and decorate treats, serve cute customers, and design
 every part of the shop.
 
-It's a **Vite + TypeScript** web app using **Three.js**, installable as a PWA, with
-an optional **Firebase** backend for cloud saves and shareable bakeries. With no
-backend configured it runs fully local (saves to the browser) — no accounts needed.
+It's a **Vite + TypeScript** web app using **Three.js**, installable as a PWA. It
+runs fully on the device — progress saves right in the browser, with no backend,
+accounts, or internet connection needed after the first load.
 
 ## ▶️ Play / host it
 
@@ -64,18 +64,15 @@ its own cupcake icon, just like a real app:
 A service worker caches the app shell, so after the first load it starts fast and
 keeps working offline.
 
-## ☁️ Cloud saves + sharing (Firebase — optional)
+## 💾 Where saves live
 
-The game works fully without a backend. To sync a bakery across devices and enable
-share links, add a Firebase project:
+Everything is stored **locally on the device** in the browser's `localStorage` —
+no backend, no accounts, no network. The bakery persists between visits on the
+same device/browser, and the **🔄 Start Over** button (in *My Shop*) clears it.
 
-1. Create a Firebase project, add a **Web app**, and enable **Anonymous auth** and
-   **Cloud Firestore**.
-2. Copy `.env.example` to `.env` and fill in the `VITE_FIREBASE_*` values (or add
-   them as GitHub Actions **repository secrets** of the same names for deploys).
-3. Rebuild. `src/save.ts` then mirrors saves to Firestore and can publish a
-   read-only copy for sharing. These web keys are safe to ship in a front-end build —
-   protect data with **Firestore Security Rules**, not by hiding the keys.
+Because it's local, saves don't follow you to a different device or browser, and
+clearing site data / browser storage wipes progress. Installing it as a PWA (below)
+keeps the same local save.
 
 ## 🎨 Adding real 3D art packs (Kenney / Quaternius / Poly Pizza)
 
@@ -102,8 +99,6 @@ styles are the biggest "amateur" tell.
 ```
 index.html              Vite entry (UI markup + styles)
 src/main.js             the game (Three.js scene, logic, studio, UI)
-src/firebase.ts         lazy Firebase bootstrap (anon auth + Firestore)
-src/save.ts             save service: local always, cloud when configured
 public/                 static assets served at the site root
   classic.html            the 2D original
   manifest.json, sw.js    PWA manifest + service worker
@@ -120,7 +115,7 @@ public/                 static assets served at the site root
   touch orbit/zoom controls with limits so a young child can't get lost.
 - **Audio:** synthesized music + sound effects (no audio files), with a 🔊 mute
   toggle in the top bar that remembers your choice.
-- Progress saves to `localStorage` (and Firestore when configured). The
+- Progress saves to `localStorage` on the device — no backend or accounts. The
   **🔄 Start Over** button (in *My Shop*) resets everything.
 
 Made with 💖 for Elise.
