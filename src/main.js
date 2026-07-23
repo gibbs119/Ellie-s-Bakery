@@ -418,18 +418,14 @@ function fitAndGround(inst, entry){
   if (entry.yOffset) inst.position.y+=entry.yOffset;
 }
 /* real 3D models for served/carried/displayed treats (falls back to an emoji) */
-const ITEM_MODEL = { cake:'cake-birthday.glb', cookie:'cookie-chocolate.glb', iceCream:'ice-cream.glb', animalCake:'cake-birthday.glb' };
-/* Food-kit models share an external colormap texture; until it's supplied we
-   tint each treat a representative colour so they read right (not blank). */
-const FOOD_TINT = { cake:'#F7C0D8', cookie:'#C08552', iceCream:'#FCEBD2', animalCake:'#F7C0D8' };
+const ITEM_MODEL = { cake:'cake-birthday.glb', cookie:'cookie-chocolate.glb', iceCream:'ice-cream.glb', animalCake:'cake-birthday.glb',
+  donut:'donut-sprinkles.glb', croissant:'croissant.glb', muffin:'muffin.glb' };
 function makeTreatModel(item, size){
   const g=new THREE.Group();
   const url=ITEM_MODEL[item];
   if (!url){ const s=emojiSprite((ITEMS[item]&&ITEMS[item].ico)||'🍽️', size||0.34); s.position.y=(size||0.34)/2; g.add(s); return g; }
   loadModelTemplate(resolveAssetUrl('assets/models/'+url)).then(tpl=>{
     const inst=tpl.clone(true); fitAndGround(inst,{fitH:size||0.34});
-    const tint=FOOD_TINT[item];
-    if (tint) inst.traverse(o=>{ if (o.isMesh&&o.material){ o.material=o.material.clone(); o.material.color=new THREE.Color(tint); } });
     g.add(inst);
   }).catch(()=>{});
   return g;
@@ -467,15 +463,22 @@ const CATALOG = {
     deco:    { glb:M+'kitchenCabinetDrawer.glb',  fitH:1.0,  rotY:Math.PI, accent:'🎂', accentY:0.15 },
     register:{ glb:M+'kitchenBar.glb',            fitH:1.05, rotY:0,        accent:'💰', accentY:0.1 },
     display: { glb:M+'kitchenCabinet.glb', fitH:0.95, rotY:0, props:[
-      {glb:M+'cupcake.glb',         fitH:0.34, x:-0.3,  y:0.98, tint:'#FF9EC4'},
-      {glb:M+'donut-sprinkles.glb', fitH:0.30, x:0.02,  y:0.98, tint:'#F2A9C4'},
-      {glb:M+'cake-birthday.glb',   fitH:0.44, x:0.32,  y:0.98, tint:'#FBD5E4'},
+      {glb:M+'cupcake.glb',         fitH:0.34, x:-0.3,  y:0.98},
+      {glb:M+'donut-sprinkles.glb', fitH:0.30, x:0.02,  y:0.98},
+      {glb:M+'cake-birthday.glb',   fitH:0.44, x:0.32,  y:0.98},
     ]},
   },
   tables:{
-    1:{ glb:M+'tableRound.glb',      fitXZ:0.95 },
-    2:{ glb:M+'tableCloth.glb',      fitXZ:1.0  },
-    3:{ glb:M+'tableCrossCloth.glb', fitXZ:1.05 },
+    1:{ glb:M+'tableRound.glb',      fitXZ:1.15 },
+    2:{ glb:M+'tableCloth.glb',      fitXZ:1.15 },
+    3:{ glb:M+'tableCrossCloth.glb', fitXZ:1.25 },
+  },
+  kitchen:{
+    hood:   { glb:M+'hoodModern.glb',    fitH:0.55, rotY:Math.PI },
+    counter:{ glb:M+'kitchenCabinet.glb',fitH:0.95, rotY:0 },
+    sink:   { glb:M+'kitchenSink.glb',   fitH:0.95, rotY:0 },
+    mixer:  { glb:M+'kitchenBlender.glb', fitH:0.4, rotY:Math.PI, y:0.98 },
+    fridge: { glb:M+'kitchenFridgeLarge.glb', fitH:1.6, rotY:0 },
   },
   furn:{
     flowerPot:{ glb:M+'pottedPlant.glb',  fitH:0.75 },
@@ -763,8 +766,8 @@ function makeTable(i){
   const g=new THREE.Group();
   const entry=CATALOG.tables[Math.min(lvl,3)]||CATALOG.tables[1];
   g.add(buildFromCatalog(entry, ()=>makeTableProcedural(i)));
-  [[0,0.62,0],[0,-0.62,Math.PI]].forEach(([x,z,r])=>{
-    const ch=buildFromCatalog({glb:M+'chair.glb', fitH:0.62, rotY:r}, ()=>new THREE.Group());
+  [[0,0.7,0],[0,-0.7,Math.PI]].forEach(([x,z,r])=>{
+    const ch=buildFromCatalog({glb:M+'chair.glb', fitH:0.72, rotY:r}, ()=>new THREE.Group());
     ch.position.set(x,0,z); g.add(ch);
   });
   return g;
@@ -1863,21 +1866,58 @@ function renderTop(){
 function renderAll(){ renderTop(); renderShop(); renderMy(); renderTray(); }
 /* the display-counter divider separating the baking area from the restaurant */
 let dividerGroup=null;
+function halfWall(tint){
+  /* a low partition panel that sits on top of the counter (serving-window look) */
+  const g=new THREE.Group();
+  loadModelTemplate(resolveAssetUrl(M+'wall.glb')).then(tpl=>{
+    const w=tpl.clone(true);
+    const box=new THREE.Box3().setFromObject(w); const c=new THREE.Vector3(); box.getCenter(c);
+    w.position.x-=c.x; w.position.z-=c.z; w.position.y-=box.min.y;
+    if (tint) w.traverse(o=>{ if (o.isMesh&&o.material){ o.material=o.material.clone(); o.material.color=new THREE.Color(tint); } });
+    const pivot=new THREE.Group(); pivot.add(w);
+    pivot.scale.set(1,0.55,1); pivot.position.set(0,0.95,-0.06);   /* on the counter, toward kitchen */
+    g.add(pivot);
+  }).catch(()=>{});
+  return g;
+}
 function buildDivider(){
   if (dividerGroup){ scene.remove(dividerGroup); disposeGroup(dividerGroup); }
   dividerGroup=new THREE.Group(); scene.add(dividerGroup);
-  const treats=[ ['cupcake.glb','#FF9EC4'], ['donut-sprinkles.glb','#F2A9C4'], ['cake-birthday.glb','#FBD5E4'], ['croissant.glb','#E7B96B'], ['muffin.glb','#C8A0FF'] ];
+  const wt=WALL_THEMES.find(w=>w.id===S.wallTheme)||WALL_THEMES[0];
+  const treats=['cupcake.glb','donut-sprinkles.glb','cake-birthday.glb','croissant.glb','muffin.glb','pie.glb'];
   let ti=0;
   for (let x=0;x<GX;x++){
     if (DIVIDER_GAPS.includes(x)) continue;
     if (stationAt(x,DIV_Y)) continue;                 /* register / display render separately */
     const showTreats = x%2===0;
-    const props = showTreats ? [(()=>{ const [gl,tn]=treats[ti++%treats.length]; return {glb:M+gl, fitH:0.32, y:0.98, tint:tn}; })()] : undefined;
+    const props = showTreats ? [{glb:M+treats[ti++%treats.length], fitH:0.32, y:0.98}] : undefined;
     const g=buildFromCatalog({glb:M+'kitchenBar.glb', fitH:0.95, rotY:0, tint:'#FFFBF3', props}, ()=>new THREE.Group());
     const p=W(x,DIV_Y); g.position.set(p.x,0,p.z); dividerGroup.add(g);
+    /* partition panel on the plain counters -> encloses the kitchen a bit,
+       leaving the treat-topped counters as open display windows */
+    if (!showTreats){ const hw=halfWall(wt.left); hw.position.set(p.x,0,p.z); dividerGroup.add(hw); }
   }
 }
-function rebuildWorld(){ buildRoom(); buildStations(); buildTables(); buildDivider(); syncFurniture(); }
+let kitchenGroup=null;
+function buildKitchen(){
+  if (kitchenGroup){ scene.remove(kitchenGroup); disposeGroup(kitchenGroup); }
+  kitchenGroup=new THREE.Group(); scene.add(kitchenGroup);
+  const place=(entry,gx,gy,extraY)=>{
+    const g=buildFromCatalog(entry, ()=>new THREE.Group());
+    const p=W(gx,gy); g.position.set(p.x,(extraY||0),p.z); kitchenGroup.add(g);
+  };
+  const K=CATALOG.kitchen;
+  /* range hood floating above the oven */
+  place(K.hood, STATION_POS.oven.x, STATION_POS.oven.y, 1.5);
+  /* a run of counters + sink + fridge along the back wall (behind the stations) */
+  place(K.fridge, GX-2, 1);
+  for (let x=5;x<=GX-3;x++){
+    place(x===6?K.sink:K.counter, x, 0);
+  }
+  /* a mixer on one of the back counters */
+  place({glb:M+'kitchenBlender.glb', fitH:0.4, rotY:Math.PI, yOffset:0.95}, 7, 0);
+}
+function rebuildWorld(){ buildRoom(); buildStations(); buildKitchen(); buildTables(); buildDivider(); syncFurniture(); }
 document.querySelectorAll('.tab').forEach(t=>{
   t.addEventListener('click',()=>{
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
