@@ -124,6 +124,22 @@
   .stepper .val{font-family:'Baloo 2'; font-weight:800; font-size:16px; min-width:42px; text-align:center;}
   .p-mood{width:24px; text-align:center; font-size:18px;}
 
+  /* ============ MENU BOARD ============ */
+  .menu-board{background:linear-gradient(180deg,#FFFDF8,#FFF6EA); border:5px solid var(--pink);
+    border-radius:22px; padding:10px 14px 14px; box-shadow:var(--shadow); margin-bottom:12px; position:relative;}
+  .menu-board::before{content:'🎀'; position:absolute; top:-16px; left:50%; transform:translateX(-50%); font-size:26px;}
+  .menu-head{font-family:'Baloo 2'; font-weight:800; font-size:20px; text-align:center; color:var(--pink-dark);
+    padding:8px 0 6px; letter-spacing:.5px;}
+  .menu-item{display:flex; align-items:center; gap:10px; padding:8px 2px;}
+  .menu-item + .menu-item{border-top:2px dotted #E6CDB4;}
+  .menu-thumb{width:56px; height:56px; flex-shrink:0; border-radius:14px; background:var(--cream);
+    display:flex; align-items:center; justify-content:center; font-size:30px; overflow:hidden;
+    box-shadow:inset 0 -3px 0 rgba(92,58,33,.06);}
+  .menu-thumb img{width:100%; height:100%; object-fit:contain; display:block;}
+  .menu-name{flex:1; min-width:0; font-family:'Baloo 2'; font-weight:800; font-size:16px; color:var(--choc);}
+  .menu-name .mn-base{display:block; font-family:'Nunito'; font-weight:700; font-size:10px; color:var(--choc-soft);}
+  .menu-item .stepper .val{min-width:52px;}
+
   /* ============ TAB BAR ============ */
   #tabbar{position:relative; display:flex; background:#fff; box-shadow:0 -4px 0 rgba(92,58,33,.08);
     padding:6px 6px calc(6px + env(safe-area-inset-bottom)); z-index:10; flex-shrink:0;}
@@ -277,9 +293,9 @@
     <div class="panel"><div class="theme-row" id="wallThemes"></div></div>
     <div class="section-title">🟫 Floor Style</div>
     <div class="panel"><div class="theme-row" id="floorThemes"></div></div>
-    <div class="section-title">🏷️ Menu Prices</div>
+    <div class="section-title">📋 Menu Board</div>
     <div class="hint">You pick every price! Too high and customers say "too pricey!"</div>
-    <div class="panel" id="priceList"></div>
+    <div class="menu-board" id="priceList"></div>
     <div class="section-title">📊 My Bakery</div>
     <div class="panel" id="statsPanel"></div>
     <button class="buy-btn" id="resetBtn" style="background:#F3D9D9; box-shadow:0 4px 0 #D8A8A8;">🔄 Start Over (grown-ups only)</button>

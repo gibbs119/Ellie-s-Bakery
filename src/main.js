@@ -1846,6 +1846,34 @@ function shopAct(a){
 /* =========================================================
    MY SHOP
 ========================================================= */
+/* render a treat's 3D model to a small PNG for the menu board (cached) */
+let thumbR=null, thumbS=null, thumbC=null;
+const thumbCache={};
+function renderTreatThumb(item, cb){
+  if (thumbCache[item]){ cb(thumbCache[item]); return; }
+  const url=ITEM_MODEL[item];
+  if (!url){ cb(null); return; }
+  try{
+    if (!thumbR){
+      thumbR=new THREE.WebGLRenderer({antialias:true, alpha:true, preserveDrawingBuffer:true});
+      thumbR.setPixelRatio(2); thumbR.setSize(128,128);
+      thumbS=new THREE.Scene();
+      thumbS.add(new THREE.HemisphereLight(0xffffff,0xFFE6D0,1.3));
+      const d=new THREE.DirectionalLight(0xffffff,1.15); d.position.set(2,4,3); thumbS.add(d);
+      thumbC=new THREE.PerspectiveCamera(32,1,0.1,20);
+      thumbC.position.set(1.5,1.4,1.95); thumbC.lookAt(0,0.42,0);
+    }
+    loadModelTemplate(resolveAssetUrl('assets/models/'+url)).then(tpl=>{
+      const g=new THREE.Group(); const inst=tpl.clone(true);
+      fitAndGround(inst,{fitH:0.95}); g.add(inst); thumbS.add(g);
+      thumbR.render(thumbS,thumbC);
+      let data=null; try{ data=thumbR.domElement.toDataURL('image/png'); }catch(e){}
+      thumbS.remove(g); disposeGroup(g);
+      if (data) thumbCache[item]=data;
+      cb(data);
+    }).catch(()=>cb(null));
+  }catch(e){ cb(null); }
+}
 function renderMy(){
   $('nameInput').value=S.shopName;
   $('logoEmojis').innerHTML=LOGO_EMOJIS.map(e=>
@@ -1856,11 +1884,12 @@ function renderMy(){
     `<div class="theme-swatch ${S.wallTheme===w.id?'sel':''}" data-wall="${w.id}" style="background:linear-gradient(135deg,${w.right},${w.left})">${w.name}</div>`).join('');
   $('floorThemes').innerHTML=FLOOR_THEMES.map(f=>
     `<div class="theme-swatch ${S.floorTheme===f.id?'sel':''}" data-floor="${f.id}" style="background:repeating-linear-gradient(45deg,${f.a} 0 8px,${f.b} 8px 16px);color:#5C3A21;text-shadow:none">${f.name}</div>`).join('');
-  $('priceList').innerHTML=S.unlockedItems.map(k=>{
-    const v=ITEMS[k], p=S.prices[k];
+  $('priceList').innerHTML=`<div class="menu-head">🍰 ${S.shopName} 🍰</div>`+S.unlockedItems.map(k=>{
+    const v=ITEMS[k], p=S.prices[k]!=null?S.prices[k]:v.base;
     const mood=p>v.base*2?'😤':p>v.base*1.4?'😐':'😍';
-    return `<div class="price-row">
-      <div class="p-ico">${v.ico}</div><div class="p-name">${v.name}</div>
+    return `<div class="menu-item">
+      <div class="menu-thumb" id="thumb-${k}">${v.ico}</div>
+      <div class="menu-name">${v.name}<span class="mn-base">usually 🪙${v.base}</span></div>
       <div class="stepper">
         <button data-price="${k}:-1">−</button>
         <div class="val">🪙${p}</div>
@@ -1869,6 +1898,10 @@ function renderMy(){
       <div class="p-mood">${mood}</div>
     </div>`;
   }).join('');
+  /* swap in real 3D treat thumbnails as they render */
+  S.unlockedItems.forEach(k=>renderTreatThumb(k, data=>{
+    const el=$('thumb-'+k); if (el && data) el.innerHTML=`<img src="${data}" alt="${ITEMS[k].name}">`;
+  }));
   const nxt=stars()<5?` (next at ${STAR_PTS[stars()]} — you have ${S.starPts})`:' (MAX!)';
   $('statsPanel').innerHTML=`
     <div style="font-weight:800;line-height:2">
@@ -1881,7 +1914,7 @@ function renderMy(){
   $('logoColors').querySelectorAll('[data-lc]').forEach(b=>b.onclick=()=>{ S.logo.color=b.dataset.lc; save(); renderTop(); renderMy(); chime(); });
   $('wallThemes').querySelectorAll('[data-wall]').forEach(b=>b.onclick=()=>{ S.wallTheme=b.dataset.wall; save(); buildRoom(); renderMy(); chime(); });
   $('floorThemes').querySelectorAll('[data-floor]').forEach(b=>b.onclick=()=>{ S.floorTheme=b.dataset.floor; save(); buildRoom(); renderMy(); chime(); });
-  $('priceList').querySelectorAll('[data-price]').forEach(b=>b.onclick=()=>{ const [k,d]=b.dataset.price.split(':'); S.prices[k]=Math.max(1,Math.min(99,S.prices[k]+(+d))); save(); renderMy(); beep(500,.05); });
+  $('priceList').querySelectorAll('[data-price]').forEach(b=>b.onclick=()=>{ const [k,d]=b.dataset.price.split(':'); const cur=S.prices[k]!=null?S.prices[k]:ITEMS[k].base; S.prices[k]=Math.max(1,Math.min(99,cur+(+d))); save(); renderMy(); beep(500,.05); });
 }
 $('nameInput').addEventListener('input',e=>{ S.shopName=e.target.value||"Elise’s Bakery"; save(); renderTop(); buildRoom(); });
 $('resetBtn').onclick=function(){
