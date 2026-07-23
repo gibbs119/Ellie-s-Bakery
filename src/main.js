@@ -28,7 +28,10 @@ const store = (() => {
 const ITEMS = {
   cake:      {ico:'🍰', name:'Cakes',        base:10, always:true},
   cookie:    {ico:'🍪', name:'Cookies',      base:6,  cost:30,  star:2},
+  donut:     {ico:'🍩', name:'Donuts',       base:5,  cost:40,  star:2, simple:true},
   iceCream:  {ico:'🍦', name:'Ice Cream',    base:7,  cost:50,  star:3},
+  croissant: {ico:'🥐', name:'Croissants',   base:6,  cost:60,  star:3, simple:true},
+  muffin:    {ico:'🧁', name:'Muffins',      base:7,  cost:80,  star:3, simple:true},
   animalCake:{ico:'🦁', name:'Animal Cakes', base:32, cost:120, star:4, party:true},
 };
 const CAKE_FLAVORS = [
@@ -156,7 +159,7 @@ const DEFAULT = () => ({
   logo:{emoji:'🧁', color:'#FFD166'},
   wallTheme:'blush', floorTheme:'cream',
   coins:25, starPts:0, served:0, earned:0, parties:0,
-  prices:{cake:10, cookie:6, iceCream:7, animalCake:32},
+  prices:{cake:10, cookie:6, donut:5, iceCream:7, croissant:6, muffin:7, animalCake:32},
   unlockedItems:['cake'],
   stations:{oven:0, deco:0, register:0, display:-1},
   tables:[0,-1,-1,-1,-1,-1],
@@ -1009,6 +1012,8 @@ function removeCustomer(c){
 function payout(c,amt,party,msg){
   if (c.seat!=null){ amt += [0,0,2,4][S.tables[c.seat]]||0; }
   amt += [0,0,2,4][S.stations.register]||0;
+  /* hygiene tip: a wash / handwashing station keeps guests happy */
+  if (S.placed.some(p=>p.type==='washSink'||p.type==='kitchenSink')) amt += 2;
   S.coins+=amt; S.earned+=amt; S.served++;
   if (party) S.parties++;
   addStarPts(amt);
@@ -1416,7 +1421,11 @@ function openPractice(item){
   openStudio();
 }
 window.openPractice=openPractice;
-function stepsFor(){ return ST.item==='iceCream'?['🍦 Scoop','🎨 Decorate','🛎️ Serve']:['🧁 Build','🔥 Bake','🎨 Decorate','🛎️ Serve']; }
+function isSimpleItem(){ return !!(ITEMS[ST.item] && ITEMS[ST.item].simple); }
+function stepsFor(){
+  if (isSimpleItem()) return ['🔥 Bake','🛎️ Serve'];
+  return ST.item==='iceCream'?['🍦 Scoop','🎨 Decorate','🛎️ Serve']:['🧁 Build','🔥 Bake','🎨 Decorate','🛎️ Serve'];
+}
 function openStudio(){
   studioOpen=true;
   $('studio').classList.add('show');
@@ -1427,6 +1436,7 @@ function openStudio(){
   else if (ST.item==='animalCake') $('stTitle').textContent=`${orderEmoji(c.order)} "A ${c.order.animal.name} ${c.order.want.tiers}-tier birthday cake!"`;
   else if (ST.item==='cake') $('stTitle').textContent=`"A ${CAKE_FLAVORS.find(f=>f.id===c.order.want.flavor).name.toLowerCase()} cake, ${c.order.want.tiers} tiers!"`;
   else if (ST.item==='cookie') $('stTitle').textContent=`"A ${c.order.want.shape} cookie please!"`;
+  else if (isSimpleItem()) $('stTitle').textContent=`${ITEMS[ST.item].ico} "A fresh ${ITEMS[ST.item].name.replace(/s$/,'').toLowerCase()}, please!"`;
   else $('stTitle').textContent=`"${c.order.want.scoops} scoops of ice cream!"`;
   rebuildTreat();
   renderStudio2();
@@ -1477,6 +1487,7 @@ function rebuildTreat(){
   if (!STurn) return;
   if (treatGroup){ STurn.remove(treatGroup); disposeGroup(treatGroup); }
   treatGroup=new THREE.Group(); STurn.add(treatGroup);
+  if (isSimpleItem()){ treatGroup.add(makeTreatModel(ST.item, 1.4)); treatGroup.position.y=0.05; return; }
   const isCake=ST.item==='cake'||ST.item==='animalCake';
   if (isCake){
     const dims=[{r:0.95,h:0.4},{r:0.72,h:0.36},{r:0.52,h:0.34}];
@@ -1550,11 +1561,37 @@ function rebuildTreat(){
 
 /* ---- studio UI ---- */
 function renderStudio2(){
+  if (!ST) return;
   $('stSteps').innerHTML=stepsFor().map((s,i)=>
     `<div class="st-step ${i===ST.step?'on':i<ST.step?'done':''}">${s}</div>`).join('');
   const B=$('stBody');
   const isCake=ST.item==='cake'||ST.item==='animalCake';
   const decIdx=ST.item==='iceCream'?1:2;
+
+  if (isSimpleItem()){
+    if (ST.step===0){
+      const pow=ovenTapPower();
+      B.innerHTML=`
+        <div class="step-title">Baking time! 🔥</div>
+        <div class="step-sub">Pop the ${ITEMS[ST.item].name.replace(/s$/,'').toLowerCase()} in — tap the oven!</div>
+        <div id="bigOven" style="${S.stations.oven>=3?'background:linear-gradient(135deg,#FF6FA5,#FFD166,#6ECEB2);box-shadow:0 8px 0 #B93B60;':''}">
+          <div id="bigOvenWin">${ITEMS[ST.item].ico}</div>
+          <div id="bigOvenBar"><div id="bigOvenFill"></div></div>
+        </div>
+        <div class="tap-note">👆 Tap the oven!</div>`;
+      let p=0; const ov=$('bigOven');
+      ov.onclick=()=>{ p=Math.min(100,p+pow); $('bigOvenFill').style.width=p+'%';
+        ov.classList.remove('shake'); void ov.offsetWidth; ov.classList.add('shake'); beep(400+p*3,.05);
+        if (p>=100){ ov.onclick=null; ST.baked=true; bigChime(); setTimeout(nextStep,320); } };
+      return;
+    }
+    B.innerHTML=`
+      <div class="step-title">${ST.practice?'Ta-daaa! 🌟':'Serve it up! 🛎️'}</div>
+      <div class="step-sub">${ST.practice?'Yummy practice bake!':'Walk it over — they can’t wait!'}</div>
+      <button class="go-btn" id="goServe">${ST.practice?'Yay! Done 🎉':'Serve it! 🛎️'}</button>`;
+    $('goServe').onclick=ST.practice?closePractice:serveNow;
+    return;
+  }
 
   if (ST.step===0 && isCake){
     B.innerHTML=`
@@ -1701,6 +1738,7 @@ function bind(rowSel, itemSel, attr, fn){
   row.querySelectorAll(itemSel).forEach(b=>b.onclick=()=>{ chime(); fn(b.getAttribute('data-'+attr)); });
 }
 function nextStep(){
+  if (!ST) return;
   if (ST.item==='iceCream'&&ST.step===0&&!ST.scoops.length){ toast('Add at least 1 scoop! 🍨'); return; }
   ST.step++; chime(); rebuildTreat(); renderStudio2();
 }
@@ -1710,7 +1748,7 @@ function serveNow(){
   if (!c||!customers.includes(c)){ toast('Oh no, they left! 🥲'); closeStudio(); return; }
   const o=c.order;
   if (o.item==='animalCake'&&!ST.animalOn){ toast('🦁 Add the animal face! Tap the animal button!'); ST.step=2; renderStudio2(); return; }
-  let amt=S.prices[o.item], msg='😍 "Yummy! Thank you!"';
+  let amt=S.prices[o.item]!=null?S.prices[o.item]:ITEMS[o.item].base, msg='😍 "Yummy! Thank you!"';
   let match=true;
   if (o.item==='cake'||o.item==='animalCake'){
     if (!ST.flavors.slice(0,ST.tiers).includes(o.want.flavor)||ST.tiers!==o.want.tiers) match=false;
@@ -1785,7 +1823,8 @@ function renderShop(){
 function shopAct(a){
   const [kind,id]=a.split(':');
   if (kind==='item'){ const v=ITEMS[id]; if (S.coins<v.cost) return;
-    S.coins-=v.cost; S.unlockedItems.push(id); addStarPts(15); save(); renderAll(); confetti(); bigChime();
+    S.coins-=v.cost; S.unlockedItems.push(id); if (S.prices[id]==null) S.prices[id]=v.base;
+    addStarPts(15); save(); renderAll(); confetti(); bigChime();
     toast(v.ico+' '+v.name+' added to your menu!'); checkObjectives(); }
   else if (kind==='furn'){ const v=FURN[id]; if (S.coins<v.cost) return;
     S.coins-=v.cost; S.inventory[id]=(S.inventory[id]||0)+1; addStarPts(8); save(); renderAll(); bigChime();
