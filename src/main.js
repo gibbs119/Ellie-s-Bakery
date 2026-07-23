@@ -737,6 +737,38 @@ function emojiSprite(emoji, scale=0.6){
   const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:emojiTexture(emoji), transparent:true, depthWrite:false}));
   spr.scale.set(scale,scale,scale); return spr;
 }
+/* A floating name-plate pill (canvas texture) so it's obvious what each thing is. */
+function labelTexture(text){
+  const fs=60, padX=34, padY=22;
+  const meas=document.createElement('canvas').getContext('2d');
+  meas.font="800 "+fs+"px 'Baloo 2','Nunito',sans-serif";
+  const w=Math.ceil(meas.measureText(text).width)+padX*2, h=fs+padY*2;
+  const cvs=document.createElement('canvas'); cvs.width=w; cvs.height=h;
+  const c=cvs.getContext('2d');
+  const r=h/2;
+  c.fillStyle='rgba(74,42,26,0.92)';
+  c.beginPath();
+  c.moveTo(r,0); c.arcTo(w,0,w,h,r); c.arcTo(w,h,0,h,r); c.arcTo(0,h,0,0,r); c.arcTo(0,0,w,0,r); c.closePath(); c.fill();
+  c.lineWidth=6; c.strokeStyle='rgba(255,255,255,0.85)'; c.stroke();
+  c.font="800 "+fs+"px 'Baloo 2','Nunito',sans-serif";
+  c.textAlign='center'; c.textBaseline='middle'; c.fillStyle='#FFF7EE';
+  c.fillText(text,w/2,h/2+2);
+  const tex=new THREE.CanvasTexture(cvs); tex.colorSpace=THREE.SRGBColorSpace; tex.anisotropy=4;
+  return {tex,aspect:w/h};
+}
+function labelSprite(text, height=0.36){
+  const {tex,aspect}=labelTexture(text);
+  const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:tex, transparent:true, depthWrite:false, depthTest:false}));
+  spr.scale.set(height*aspect, height, 1); spr.renderOrder=999;
+  return spr;
+}
+/* Name + hover height for each station's floating label. */
+const STATION_LABEL = {
+  oven:     {txt:'🔥 Oven',          y:1.85},
+  deco:     {txt:'🎨 Decorate',      y:1.5 },
+  register: {txt:'💰 Cash Register', y:1.7 },
+  display:  {txt:'🧁 Display Case',  y:1.65},
+};
 function disposeGroup(g){
   g.traverse(o=>{
     if (o.geometry) o.geometry.dispose();
@@ -763,6 +795,13 @@ function makeStation(k){
   const entry = (lvl>=1 && CATALOG.stations[k]) ? CATALOG.stations[k] : null;
   const g = buildFromCatalog(entry, ()=>makeStationProcedural(k));
   g.userData.station=k;
+  /* generous invisible tap target so the whole station is easy to select
+     (tapping the tall body used to project past the model onto the floor) */
+  const pad=meshOf(G.box(1.3,2.2,1.3), mat('#000',{transparent:true,opacity:0}), false);
+  pad.position.y=1.05; pad.receiveShadow=false; pad.userData.hitPad=true; g.add(pad);
+  /* floating name plate so it's obvious what each station is */
+  const L=STATION_LABEL[k];
+  if (L){ const lab=labelSprite(L.txt, 0.34); lab.position.set(0,L.y,0); lab.userData.nameplate=true; g.add(lab); }
   return g;
 }
 function makeStationProcedural(k){
@@ -808,11 +847,11 @@ function makeStationProcedural(k){
 let tableObjs=[];
 function buildTables(){
   tableObjs.forEach(o=>{ scene.remove(o); disposeGroup(o); }); tableObjs=[];
-  tableSlots().forEach((p,i)=>{ const g=makeTable(i); const w=W(p.x,p.y); g.position.set(w.x,0,w.z); scene.add(g); tableObjs[i]=g; });
+  tableSlots().forEach((p,i)=>{ const g=makeTable(i); g.userData.tableIndex=i; const w=W(p.x,p.y); g.position.set(w.x,0,w.z); scene.add(g); tableObjs[i]=g; });
 }
 function refreshTable(i){
   if (tableObjs[i]){ scene.remove(tableObjs[i]); disposeGroup(tableObjs[i]); }
-  const g=makeTable(i); const p=tableSlots()[i]; const w=W(p.x,p.y); g.position.set(w.x,0,w.z); scene.add(g); tableObjs[i]=g;
+  const g=makeTable(i); g.userData.tableIndex=i; const p=tableSlots()[i]; const w=W(p.x,p.y); g.position.set(w.x,0,w.z); scene.add(g); tableObjs[i]=g;
 }
 function makeTable(i){
   const lvl=S.tables[i];
@@ -1306,12 +1345,29 @@ function handleTap(clientX, clientY){
   const ndc=new THREE.Vector2(((clientX-r.left)/r.width)*2-1, -(((clientY-r.top)/r.height)*2-1));
   raycaster.setFromCamera(ndc, camera);
   const hit=raycaster.intersectObject(groundPlane)[0];
-  if (!hit) return;
-  const gx=Math.round(hit.point.x+(GX-1)/2), gy=Math.round(hit.point.z+(GY-1)/2);
-  if (!inGrid(gx,gy)) return;
-  /* customer on/near this tile? */
-  const c=customers.find(x=>(x.state==='queue'||x.state==='toQueue')&&Math.abs(x.x-gx)<0.7&&Math.abs(x.y-gy)<0.7);
-  if (c && !buildMode){ tryOrder(c); return; }
+  const gx=hit?Math.round(hit.point.x+(GX-1)/2):null, gy=hit?Math.round(hit.point.z+(GY-1)/2):null;
+  const onGrid=hit&&inGrid(gx,gy);
+  /* Customers keep priority: tap a waiting guest to take their order. */
+  if (onGrid && !buildMode){
+    const c=customers.find(x=>(x.state==='queue'||x.state==='toQueue')&&Math.abs(x.x-gx)<0.7&&Math.abs(x.y-gy)<0.7);
+    if (c){ tryOrder(c); return; }
+  }
+  /* A direct hit anywhere on a station or table model opens its sheet — the
+     whole 3D piece is clickable, so tall items like the register are easy to
+     select instead of relying on the floor tile beneath them. */
+  if (!buildMode){
+    const pickables=[...Object.values(stationObjs), ...tableObjs].filter(Boolean);
+    const picks=raycaster.intersectObjects(pickables, true);
+    if (picks.length){
+      let o=picks[0].object;
+      while (o && o.userData.station===undefined && o.userData.tableIndex===undefined) o=o.parent;
+      if (o){
+        if (o.userData.station){ openSheet(o.userData.station); return; }
+        if (o.userData.tableIndex!==undefined && S.tables[o.userData.tableIndex]>=0){ openSheet('table'+o.userData.tableIndex); return; }
+      }
+    }
+  }
+  if (!onGrid) return;
   const st=stationAt(gx,gy);
   if (st&&!buildMode){ openSheet(st); return; }
   if (buildMode){
