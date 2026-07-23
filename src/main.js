@@ -39,21 +39,25 @@ const CAKE_FLAVORS = [
   {id:'vanilla', name:'Vanilla',    ico:'🍰', color:'#FBE8C8'},
   {id:'strawb',  name:'Strawberry', ico:'🍓', color:'#FF9EC4'},
   {id:'mint',    name:'Mint',       ico:'🌿', color:'#A8E6CF'},
+  {id:'blue',    name:'Blueberry',  ico:'🫐', color:'#9AB8E6'},
+  {id:'lemon',   name:'Lemon',      ico:'🍋', color:'#FFE07A'},
   {id:'rainbow', name:'Rainbow',    ico:'🌈', color:'rainbow'},
 ];
 const COOKIE_SHAPES = [
-  {id:'circle', name:'Circle', ico:'🔵'}, {id:'heart', name:'Heart', ico:'💗'}, {id:'star', name:'Star', ico:'⭐'},
+  {id:'circle', name:'Circle', ico:'🔵'}, {id:'heart', name:'Heart', ico:'💗'}, {id:'star', name:'Star', ico:'⭐'}, {id:'flower', name:'Flower', ico:'🌸'},
 ];
 const COOKIE_DOUGHS = [
   {id:'sugar', name:'Sugar', color:'#EFC98A'}, {id:'choc', name:'Chocolate', color:'#7A4B2A'}, {id:'ginger', name:'Ginger', color:'#C98B4B'},
+  {id:'honey', name:'Honey', color:'#E8B94A'}, {id:'velvet', name:'Red Velvet', color:'#C24E5C'},
 ];
 const SCOOP_FLAVORS = [
   {id:'straw', name:'Strawberry', color:'#FFB3CE'}, {id:'vanilla', name:'Vanilla', color:'#FFF4DC'},
   {id:'choc', name:'Chocolate', color:'#8A5A44'}, {id:'mint', name:'Mint', color:'#A8E6CF'}, {id:'blue', name:'Bubblegum', color:'#BDE3F5'},
+  {id:'cherry', name:'Cherry', color:'#FF6B8A'}, {id:'mango', name:'Mango', color:'#FFC24C'}, {id:'grape', name:'Grape', color:'#C8A0FF'},
 ];
-const FROSTINGS = ['#FF9EC4','#FFF4DC','#8A5A44','#A8E6CF','#E4C1F9','#FFD166','#BDE3F5'];
+const FROSTINGS = ['#FF9EC4','#FFF4DC','#8A5A44','#A8E6CF','#E4C1F9','#FFD166','#BDE3F5','#FFB4A2','#C8A0FF','#9AD0EC','#B5EAD7','#FF6FA5'];
 const DRIZZLES = [{id:'choc',color:'#5C3A21',name:'Choc'},{id:'berry',color:'#E84E8A',name:'Berry'},{id:'gold',color:'#FFD166',name:'Gold'},{id:'none',color:null,name:'None'}];
-const TOPPINGS = ['🍓','🍒','✨','🍬','🫐','🍫','🌸','🍭'];
+const TOPPINGS = ['🍓','🍒','✨','🍬','🫐','🍫','🌸','🍭','🥝','🍊','🌈','⭐','💖','🧡','🍯','🥥'];
 const TOPPERS = [{id:'candle',ico:'🕯️'},{id:'star',ico:'🌟'},{id:'cherry',ico:'🍒'},{id:'none',ico:'🚫'}];
 const ANIMALS = [{id:'lion',ico:'🦁',name:'Lion',color:'#E0A93B'},{id:'giraffe',ico:'🦒',name:'Giraffe',color:'#F2C14E'},{id:'leopard',ico:'🐆',name:'Leopard',color:'#D9A05B'}];
 const FURN = {
@@ -91,21 +95,32 @@ const COSTUMES = [
   {id:'fairy', ico:'🧚', name:'Fairy Baker', cost:45}, {id:'cat', ico:'🐱', name:'Kitty Baker', cost:60},
   {id:'crown', ico:'👑', name:'Bakery Queen', cost:75}, {id:'star', ico:'🌟', name:'Superstar', cost:100},
 ];
-const LOGO_EMOJIS = ['🧁','🍰','🍪','🍩','🌈','🦄','🍓','💖','🐱','🌸','⭐','🍦'];
-const LOGO_COLORS = ['#FFD166','#FF9EC4','#A8E6CF','#BDE3F5','#E4C1F9','#FFB4A2'];
+const LOGO_EMOJIS = ['🧁','🍰','🍪','🍩','🌈','🦄','🍓','💖','🐱','🌸','⭐','🍦','🎂','🍭','🦋','🐰','👑','🍀'];
+const LOGO_COLORS = ['#FFD166','#FF9EC4','#A8E6CF','#BDE3F5','#E4C1F9','#FFB4A2','#FFE07A','#9AD0EC','#C8A0FF','#FF6FA5'];
 const WALL_THEMES = [
   {id:'blush', name:'Blush',   right:'#F7BFD9', left:'#F3AECF'},
   {id:'mint',  name:'Mint',    right:'#B7E4CF', left:'#A3D9BE'},
   {id:'sky',   name:'Sky',     right:'#BFD9F7', left:'#AECBEF'},
   {id:'lilac', name:'Lilac',   right:'#DBC7F0', left:'#CBB4E8'},
   {id:'butter',name:'Butter',  right:'#FFE6A8', left:'#FFDA88'},
+  {id:'peach', name:'Peach',   right:'#FFD3B6', left:'#FFC29A'},
+  {id:'rose',  name:'Rose',    right:'#FF9EC4', left:'#FB86B4'},
+  {id:'aqua',  name:'Aqua',    right:'#A8E6E0', left:'#8FDAD3'},
+  {id:'grape', name:'Grape',   right:'#C6A8E6', left:'#B593DE'},
+  {id:'sunny', name:'Sunny',   right:'#FFE07A', left:'#FFD24D'},
 ];
+/* pattern: check | dots | hearts | stars | stripes | planks */
 const FLOOR_THEMES = [
-  {id:'cream', name:'Cream',  a:'#FBEAD7', b:'#F6DDC0'},
-  {id:'pink',  name:'Pink',   a:'#FCE0EC', b:'#F7CBDD'},
-  {id:'mint',  name:'Mint',   a:'#DDF2E6', b:'#C6E7D4'},
-  {id:'wood',  name:'Wood',   a:'#E6C79C', b:'#D8B382'},
-  {id:'candy', name:'Candy',  a:'#FDE1E1', b:'#E1EEFD'},
+  {id:'cream', name:'Cream',  a:'#FBEAD7', b:'#F6DDC0', pattern:'check'},
+  {id:'pink',  name:'Pink',   a:'#FCE0EC', b:'#F7CBDD', pattern:'check'},
+  {id:'mint',  name:'Mint',   a:'#DDF2E6', b:'#C6E7D4', pattern:'check'},
+  {id:'wood',  name:'Wood',   a:'#E6C79C', b:'#D8B382', pattern:'planks'},
+  {id:'candy', name:'Candy',  a:'#FDE1E1', b:'#E1EEFD', pattern:'check'},
+  {id:'dots',  name:'Dots',   a:'#FFF3E2', b:'#FF9EC4', pattern:'dots'},
+  {id:'hearts',name:'Hearts', a:'#FFF0F5', b:'#FF6FA5', pattern:'hearts'},
+  {id:'stars', name:'Stars',  a:'#EAF3FF', b:'#FFD166', pattern:'stars'},
+  {id:'stripe',name:'Stripes',a:'#FFF6E5', b:'#A8E6CF', pattern:'stripes'},
+  {id:'bubble',name:'Bubbles',a:'#EAF6FF', b:'#9AD0EC', pattern:'dots'},
 ];
 const ADULT_HAIR = ['#5C3A21','#8A6242','#2E2E2E','#B5651D','#C9A24B','#7A4B2A','#A64B9B','#4B6FA6'];
 const ADULT_SKIN = ['#F7C69B','#E8B183','#C68642','#8D5524','#F1D2B6'];
@@ -466,9 +481,9 @@ const CATALOG = {
     deco:    { glb:M+'kitchenCabinetDrawer.glb',  fitH:1.0,  rotY:Math.PI, accent:'🎂', accentY:0.15 },
     register:{ glb:M+'kitchenBar.glb',            fitH:1.05, rotY:0,        accent:'💰', accentY:0.1 },
     display: { glb:M+'kitchenCabinet.glb', fitH:0.95, rotY:0, props:[
-      {glb:M+'cupcake.glb',         fitH:0.34, x:-0.3,  y:0.98},
-      {glb:M+'donut-sprinkles.glb', fitH:0.30, x:0.02,  y:0.98},
-      {glb:M+'cake-birthday.glb',   fitH:0.44, x:0.32,  y:0.98},
+      {glb:M+'cake-birthday.glb',   fitH:0.30, x:-0.34, y:0.98},
+      {glb:M+'cupcake.glb',         fitH:0.24, x:-0.02, y:0.98},
+      {glb:M+'donut-sprinkles.glb', fitH:0.24, x:0.30,  y:0.98},
     ]},
   },
   tables:{
@@ -585,22 +600,29 @@ function meshOf(geo,material,cast=true){ const m=new THREE.Mesh(geo,material); m
 
 /* ---- floor + walls (canvas-textured, rebuilt on theme change) ---- */
 let roomGroup=null;
+function cvHeart(c,cx,cy,s,col){ c.save(); c.translate(cx,cy); c.fillStyle=col; c.beginPath();
+  c.moveTo(0,s*0.35); c.bezierCurveTo(s,-s*0.3, s*0.5,-s*0.95, 0,-s*0.3); c.bezierCurveTo(-s*0.5,-s*0.95, -s,-s*0.3, 0,s*0.35); c.closePath(); c.fill(); c.restore(); }
+function cvStar(c,cx,cy,s,col){ c.save(); c.translate(cx,cy); c.fillStyle=col; c.beginPath();
+  for (let i=0;i<10;i++){ const r=i%2?s*0.45:s, a=Math.PI/5*i-Math.PI/2, px=Math.cos(a)*r, py=Math.sin(a)*r; i?c.lineTo(px,py):c.moveTo(px,py);} c.closePath(); c.fill(); c.restore(); }
 function floorTexture(){
   const th=FLOOR_THEMES.find(f=>f.id===S.floorTheme)||FLOOR_THEMES[0];
-  const cvs=document.createElement('canvas'); cvs.width=GX*32; cvs.height=GY*32;
+  const T=48, pat=th.pattern||'check';
+  const cvs=document.createElement('canvas'); cvs.width=GX*T; cvs.height=GY*T;
   const c=cvs.getContext('2d');
+  c.fillStyle=th.a; c.fillRect(0,0,cvs.width,cvs.height);
   for (let x=0;x<GX;x++) for (let y=0;y<GY;y++){
-    c.fillStyle=(x+y)%2===0?th.a:th.b;
-    c.fillRect(x*32,y*32,32,32);
-    c.strokeStyle='rgba(92,58,33,.06)'; c.strokeRect(x*32,y*32,32,32);
+    const px=x*T, py=y*T;
+    if (pat==='check'){ if ((x+y)%2===0){ c.fillStyle=th.b; c.fillRect(px,py,T,T); } }
+    else if (pat==='planks'){ c.fillStyle=x%2===0?th.a:th.b; c.fillRect(px,py,T,T); }
+    else if (pat==='stripes'){ c.fillStyle=(x+y)%2===0?th.a:th.b; c.fillRect(px,py,T,T); }
+    else if (pat==='dots'){ c.fillStyle=th.b; c.beginPath(); c.arc(px+T/2,py+T/2,T*0.24,0,Math.PI*2); c.fill(); }
+    else if (pat==='hearts'){ cvHeart(c,px+T/2,py+T*0.55,T*0.30,th.b); }
+    else if (pat==='stars'){ cvStar(c,px+T/2,py+T/2,T*0.32,th.b); }
+    c.strokeStyle='rgba(92,58,33,.05)'; c.strokeRect(px+0.5,py+0.5,T-1,T-1);
   }
-  /* queue mats */
-  QUEUE_SPOTS.forEach(q=>{ c.fillStyle='#FCE0B8'; c.fillRect(q.x*32+3,q.y*32+3,26,26); });
-  /* door mat */
-  c.fillStyle='#B8E0D2'; c.fillRect(DOOR.x*32+3,DOOR.y*32+3,26,26);
-  const tex=new THREE.CanvasTexture(cvs);
-  tex.colorSpace=THREE.SRGBColorSpace; tex.magFilter=THREE.NearestFilter;
-  tex.anisotropy=4;
+  QUEUE_SPOTS.forEach(q=>{ c.fillStyle='#FCE0B8'; c.fillRect(q.x*T+5,q.y*T+5,T-10,T-10); });
+  c.fillStyle='#B8E0D2'; c.fillRect(DOOR.x*T+5,DOOR.y*T+5,T-10,T-10);
+  const tex=new THREE.CanvasTexture(cvs); tex.colorSpace=THREE.SRGBColorSpace; tex.anisotropy=4;
   return tex;
 }
 function signTexture(){
@@ -1476,6 +1498,9 @@ function cookieShapeGeom(shape){
   else if (shape==='heart'){
     s.moveTo(0,-0.9); s.bezierCurveTo(0.9,-0.2, 1.1,0.6, 0,1.0);
     s.bezierCurveTo(-1.1,0.6, -0.9,-0.2, 0,-0.9);
+  } else if (shape==='flower'){
+    for (let i=0;i<=72;i++){ const t=i/72*Math.PI*2, r=0.68+0.32*Math.cos(6*t); const px=Math.cos(t)*r, py=Math.sin(t)*r; if(i===0)s.moveTo(px,py); else s.lineTo(px,py); }
+    s.closePath();
   } else { /* star */
     const spikes=5, outer=1, inner=0.45;
     for (let i=0;i<spikes*2;i++){ const r=i%2?inner:outer; const a=Math.PI/spikes*i-Math.PI/2; const px=Math.cos(a)*r, py=Math.sin(a)*r; if(i===0)s.moveTo(px,py); else s.lineTo(px,py); }
@@ -1958,7 +1983,7 @@ function buildDivider(){
   if (dividerGroup){ scene.remove(dividerGroup); disposeGroup(dividerGroup); }
   dividerGroup=new THREE.Group(); scene.add(dividerGroup);
   const wt=WALL_THEMES.find(w=>w.id===S.wallTheme)||WALL_THEMES[0];
-  const treats=['cupcake.glb','donut-sprinkles.glb','cake-birthday.glb','croissant.glb','muffin.glb','pie.glb'];
+  const treats=['cupcake.glb','donut-sprinkles.glb','croissant.glb','muffin.glb','cookie-chocolate.glb','donut-chocolate.glb'];
   let ti=0;
   for (let x=0;x<GX;x++){
     if (DIVIDER_GAPS.includes(x)) continue;
@@ -2019,14 +2044,14 @@ function buildMenuBoard(){
   if (menuBoardGroup){ scene.remove(menuBoardGroup); disposeGroup(menuBoardGroup); }
   menuBoardGroup=new THREE.Group(); scene.add(menuBoardGroup);
   const {tex,aspect}=menuBoardTexture();
-  const h=1.9, w=h*aspect;
+  const h=1.6, w=h*aspect;
   const grp=new THREE.Group();
   const back=meshOf(G.box(w+0.14,h+0.14,0.08), mat('#8A5A44')); back.position.z=-0.05; grp.add(back);
   const board=new THREE.Mesh(new THREE.PlaneGeometry(w,h), new THREE.MeshBasicMaterial({map:tex, transparent:true}));
   board.position.z=0.001; grp.add(board);
-  [-w*0.36,w*0.36].forEach(x=>{ const rod=meshOf(G.cyl(0.018,0.018,0.7,6), mat('#C9A24B'),false); rod.position.set(x,h/2+0.35,0); grp.add(rod); });
+  [-w*0.36,w*0.36].forEach(x=>{ const rod=meshOf(G.cyl(0.018,0.018,0.32,6), mat('#C9A24B'),false); rod.position.set(x,h/2+0.16,0); grp.add(rod); });
   const p=W(Math.floor(GX/2), DIV_Y);
-  grp.position.set(0, 2.15, p.z-0.05);
+  grp.position.set(0, 2.15, p.z-0.15);
   menuBoardGroup.add(grp);
 }
 /* ---- steam / warmth particles ---- */
