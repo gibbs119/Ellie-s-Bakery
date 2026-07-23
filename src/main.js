@@ -62,6 +62,12 @@ const FURN = {
   playArea: {ico:'🛝', name:'Play Area',   cost:80, star:3, desc:'Kids wait way longer'},
   fountain: {ico:'⛲', name:'Fountain',    cost:90, star:4, desc:'Fancy fancy!'},
   robot:    {ico:'🤖', name:'Robo Pal',    cost:40, star:2, desc:'A dancing robot friend!'},
+  bench:    {ico:'🪑', name:'Bench',       cost:28, star:2, desc:'Comfy seating'},
+  lamp:     {ico:'💡', name:'Floor Lamp',  cost:32, star:2, desc:'Warm cozy glow'},
+  bookcase: {ico:'📚', name:'Bookcase',    cost:45, star:3, desc:'A reading nook'},
+  coffee:   {ico:'☕', name:'Coffee Bar',  cost:50, star:3, desc:'Fancy drinks!'},
+  sofa:     {ico:'🛋️', name:'Comfy Sofa',  cost:70, star:3, desc:'Lounge in style'},
+  fridge:   {ico:'🧊', name:'Treat Fridge',cost:60, star:3, desc:'Keeps treats cool'},
 };
 const UPGRADES = {
   art:   {ico:'🖼️', name:'Wall Art',       cost:45,  star:2, desc:'Paintings on the walls!'},
@@ -368,6 +374,22 @@ function loadModelTemplate(url){
 function resolveAssetUrl(u){
   return /^https?:/i.test(u) ? u : ((import.meta.env.BASE_URL || '/') + String(u).replace(/^\//,''));
 }
+/* normalise any model to a target size, centre it on its tile, and rest it on
+   the floor — so drop-in art packs of varying native scales all fit the grid */
+function fitAndGround(inst, entry){
+  let box=new THREE.Box3().setFromObject(inst);
+  const size=new THREE.Vector3(); box.getSize(size);
+  let s=1;
+  if (entry.fitH) s=entry.fitH/(size.y||1);
+  else if (entry.fitXZ) s=entry.fitXZ/(Math.max(size.x,size.z)||1);
+  else if (entry.scale) s=entry.scale;
+  if (s!==1 && isFinite(s)) inst.scale.multiplyScalar(s);
+  box=new THREE.Box3().setFromObject(inst);
+  const c=new THREE.Vector3(); box.getCenter(c);
+  inst.position.x-=c.x; inst.position.z-=c.z;      /* centre on tile */
+  inst.position.y-=box.min.y;                      /* sit on the floor */
+  if (entry.yOffset) inst.position.y+=entry.yOffset;
+}
 /* returns a Group immediately; if entry has a glb it loads async and
    swaps the procedural placeholder in-place once ready */
 function buildFromCatalog(entry, proceduralFn){
@@ -377,10 +399,11 @@ function buildFromCatalog(entry, proceduralFn){
     loadModelTemplate(resolveAssetUrl(entry.glb)).then(tpl=>{
       const anims=tpl.userData.animations||[];
       const inst=anims.length?skeletonClone(tpl):tpl.clone(true);
-      if (entry.scale) inst.scale.setScalar(entry.scale);
       if (entry.rotY) inst.rotation.y=entry.rotY;
+      fitAndGround(inst, entry);
       if (entry.tint){ inst.traverse(o=>{ if (o.isMesh&&o.material){ o.material=o.material.clone(); o.material.color=new THREE.Color(entry.tint); } }); }
       g.remove(placeholder); g.add(inst);
+      if (entry.accent){ const b=new THREE.Box3().setFromObject(inst); const spr=emojiSprite(entry.accent,0.42); spr.position.set(0, b.max.y+(entry.accentY||0.1), 0); g.add(spr); }
       if (entry.animate && anims.length){
         const mixer=new THREE.AnimationMixer(inst);
         const clip=THREE.AnimationClip.findByName(anims, entry.animate)||anims[0];
@@ -392,11 +415,32 @@ function buildFromCatalog(entry, proceduralFn){
 }
 /* catalog: model source per item (glb urls intentionally empty by default
    so the game ships self-contained; art packs plug in here) */
+const M = 'assets/models/';
 const CATALOG = {
+  stations:{
+    oven:    { glb:M+'kitchenStove.glb',          fitH:1.35, rotY:Math.PI },
+    deco:    { glb:M+'kitchenCabinetDrawer.glb',  fitH:1.0,  rotY:Math.PI, accent:'🎂', accentY:0.15 },
+    register:{ glb:M+'kitchenBar.glb',            fitH:1.05, rotY:0,        accent:'💰', accentY:0.1 },
+    display: { glb:M+'kitchenFridgeLarge.glb',    fitH:1.5,  rotY:0, accent:'🧁', accentY:0.12 },
+  },
+  tables:{
+    1:{ glb:M+'tableRound.glb',      fitXZ:0.95 },
+    2:{ glb:M+'tableCloth.glb',      fitXZ:1.0  },
+    3:{ glb:M+'tableCrossCloth.glb', fitXZ:1.05 },
+  },
   furn:{
-    flowerPot:{}, plant:{}, rug:{}, balloons:{}, teddy:{}, playArea:{}, fountain:{},
-    // real downloaded CC0 model (rigged + animated) — proves the art pipeline
-    robot:{ glb:'assets/models/robot.glb', scale:0.34, animate:'Dance' },
+    flowerPot:{ glb:M+'pottedPlant.glb',  fitH:0.75 },
+    plant:    { glb:M+'plantSmall2.glb',  fitH:0.6  },
+    rug:      { glb:M+'rugDoormat.glb',   fitXZ:0.95 },
+    balloons:{}, teddy:{}, playArea:{}, fountain:{},
+    robot:    { glb:M+'robot.glb',        fitH:0.7, animate:'Dance' },
+    // new decorations unlocked by the art pack
+    bench:    { glb:M+'bench.glb',                fitXZ:0.95 },
+    bookcase: { glb:M+'bookcaseOpen.glb',         fitH:1.25, rotY:Math.PI },
+    lamp:     { glb:M+'lampRoundFloor.glb',       fitH:1.4  },
+    sofa:     { glb:M+'loungeDesignSofa.glb',     fitXZ:1.1, rotY:Math.PI },
+    coffee:   { glb:M+'kitchenCoffeeMachine.glb', fitH:0.6  },
+    fridge:   { glb:M+'kitchenFridgeSmall.glb',   fitH:1.15, rotY:Math.PI },
   },
 };
 /* test/diagnostic hook: prove the GLB pipeline end-to-end */
@@ -593,6 +637,13 @@ function refreshStation(k){
   g.position.set(p.x,0,p.z); scene.add(g); stationObjs[k]=g;
 }
 function makeStation(k){
+  const lvl=S.stations[k];
+  const entry = (lvl>=1 && CATALOG.stations[k]) ? CATALOG.stations[k] : null;
+  const g = buildFromCatalog(entry, ()=>makeStationProcedural(k));
+  g.userData.station=k;
+  return g;
+}
+function makeStationProcedural(k){
   const g=new THREE.Group(); g.userData.station=k;
   const lvl=S.stations[k]; const sleepy=lvl<=0;
   if (k==='oven'){
@@ -642,6 +693,18 @@ function refreshTable(i){
   const g=makeTable(i); const p=tableSlots()[i]; const w=W(p.x,p.y); g.position.set(w.x,0,w.z); scene.add(g); tableObjs[i]=g;
 }
 function makeTable(i){
+  const lvl=S.tables[i];
+  if (lvl<1) return makeTableProcedural(i);
+  const g=new THREE.Group();
+  const entry=CATALOG.tables[Math.min(lvl,3)]||CATALOG.tables[1];
+  g.add(buildFromCatalog(entry, ()=>makeTableProcedural(i)));
+  [[0,0.62,0],[0,-0.62,Math.PI]].forEach(([x,z,r])=>{
+    const ch=buildFromCatalog({glb:M+'chair.glb', fitH:0.62, rotY:r}, ()=>new THREE.Group());
+    ch.position.set(x,0,z); g.add(ch);
+  });
+  return g;
+}
+function makeTableProcedural(i){
   const g=new THREE.Group(); const lvl=S.tables[i];
   if (lvl<0){
     const ghost=meshOf(G.cyl(0.35,0.35,0.05,18), mat('#B93B60',{transparent:true,opacity:0.16})); ghost.position.y=0.02; ghost.castShadow=false; g.add(ghost);
