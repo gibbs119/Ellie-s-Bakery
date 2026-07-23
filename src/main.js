@@ -44,7 +44,10 @@ const CAKE_FLAVORS = [
   {id:'rainbow', name:'Rainbow',    ico:'🌈', color:'rainbow'},
 ];
 const COOKIE_SHAPES = [
-  {id:'circle', name:'Circle', ico:'🔵'}, {id:'heart', name:'Heart', ico:'💗'}, {id:'star', name:'Star', ico:'⭐'}, {id:'flower', name:'Flower', ico:'🌸'},
+  {id:'circle', name:'Circle', ico:'🔵'}, {id:'heart', name:'Heart', ico:'💗'}, {id:'star', name:'Star', ico:'⭐'},
+  {id:'flower', name:'Flower', ico:'🌸'}, {id:'square', name:'Square', ico:'🟦'}, {id:'diamond', name:'Diamond', ico:'💎'},
+  {id:'hexagon', name:'Hexagon', ico:'🔶'}, {id:'moon', name:'Moon', ico:'🌙'}, {id:'cloud', name:'Cloud', ico:'☁️'},
+  {id:'butterfly', name:'Butterfly', ico:'🦋'}, {id:'egg', name:'Egg', ico:'🥚'}, {id:'gift', name:'Gift', ico:'🎁'},
 ];
 const COOKIE_DOUGHS = [
   {id:'sugar', name:'Sugar', color:'#EFC98A'}, {id:'choc', name:'Chocolate', color:'#7A4B2A'}, {id:'ginger', name:'Ginger', color:'#C98B4B'},
@@ -108,6 +111,10 @@ const WALL_THEMES = [
   {id:'aqua',  name:'Aqua',    right:'#A8E6E0', left:'#8FDAD3'},
   {id:'grape', name:'Grape',   right:'#C6A8E6', left:'#B593DE'},
   {id:'sunny', name:'Sunny',   right:'#FFE07A', left:'#FFD24D'},
+  {id:'polka', name:'Polka',   right:'#FF9EC4', left:'#FFAFCB', pattern:'dots'},
+  {id:'candy', name:'Stripes', right:'#A8E6CF', left:'#B7ECD9', pattern:'stripes'},
+  {id:'starry',name:'Stars',   right:'#BFD9F7', left:'#CDE3FB', pattern:'stars'},
+  {id:'love',  name:'Hearts',  right:'#F7BFD9', left:'#FAD0E4', pattern:'hearts'},
 ];
 /* pattern: check | dots | hearts | stars | stripes | planks */
 const FLOOR_THEMES = [
@@ -181,10 +188,18 @@ const DEFAULT = () => ({
   inventory:{}, placed:[],
   upgrades:[], staff:[],
   costumes:['pink'], costume:'pink',
+  elise:{skin:'#F7C69B', hair:'#6B3F2A', color:'#FF6FA5'},
+  tableColor:null,
   objIdx:0,
 });
 let S = DEFAULT();
 try { const raw = store.get('eliseBakery3D'); if (raw) S = Object.assign(DEFAULT(), JSON.parse(raw)); } catch(e){}
+S.elise = Object.assign({skin:'#F7C69B', hair:'#6B3F2A', color:'#FF6FA5'}, S.elise||{});
+/* customization palettes */
+const SKINS = ['#F7C69B','#F1D2B6','#E8B183','#C68642','#8D5524','#5C3A2E'];
+const HAIRS = ['#6B3F2A','#2E2E2E','#C9A24B','#B5651D','#A64B9B','#4B6FA6','#FF6FA5','#E84E8A','#6ECEB2'];
+const OUTFITS = ['#FF6FA5','#6ECEB2','#FFD166','#BDE3F5','#E4C1F9','#FFB4A2','#C8A0FF','#9AD0EC','#F48FB1'];
+const TABLECLOTHS = [null,'#FF9EC4','#A8E6CF','#BDE3F5','#E4C1F9','#FFD166','#FFB4A2','#C8A0FF'];
 function save(){ const j=JSON.stringify(S); store.set('eliseBakery3D', j); try{ cloudMirror(j); }catch(e){} }
 
 /* =========================================================
@@ -604,6 +619,19 @@ function cvHeart(c,cx,cy,s,col){ c.save(); c.translate(cx,cy); c.fillStyle=col; 
   c.moveTo(0,s*0.35); c.bezierCurveTo(s,-s*0.3, s*0.5,-s*0.95, 0,-s*0.3); c.bezierCurveTo(-s*0.5,-s*0.95, -s,-s*0.3, 0,s*0.35); c.closePath(); c.fill(); c.restore(); }
 function cvStar(c,cx,cy,s,col){ c.save(); c.translate(cx,cy); c.fillStyle=col; c.beginPath();
   for (let i=0;i<10;i++){ const r=i%2?s*0.45:s, a=Math.PI/5*i-Math.PI/2, px=Math.cos(a)*r, py=Math.sin(a)*r; i?c.lineTo(px,py):c.moveTo(px,py);} c.closePath(); c.fill(); c.restore(); }
+function shade(hex, amt){ const n=parseInt(hex.slice(1),16); let r=(n>>16)&255,g=(n>>8)&255,b=n&255;
+  r=Math.max(0,Math.min(255,r+amt)); g=Math.max(0,Math.min(255,g+amt)); b=Math.max(0,Math.min(255,b+amt));
+  return '#'+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1); }
+function wallPatternTex(base, pattern){
+  const T=128; const cvs=document.createElement('canvas'); cvs.width=cvs.height=T; const c=cvs.getContext('2d');
+  c.fillStyle=base; c.fillRect(0,0,T,T);
+  const acc=shade(base, pattern==='stripes'?-16:24);
+  if (pattern==='dots'){ c.fillStyle=acc; for(let i=0;i<4;i++)for(let j=0;j<5;j++){ c.beginPath(); c.arc((i+0.5)*T/4,(j+0.5)*T/5,T*0.05,0,Math.PI*2); c.fill(); } }
+  else if (pattern==='stripes'){ c.fillStyle=acc; for(let i=0;i<6;i++) c.fillRect(i*T/6,0,T/12,T); }
+  else if (pattern==='stars'){ for(let i=0;i<3;i++)for(let j=0;j<4;j++) cvStar(c,(i+0.5)*T/3,(j+0.5)*T/4,T*0.06,acc); }
+  else if (pattern==='hearts'){ for(let i=0;i<3;i++)for(let j=0;j<4;j++) cvHeart(c,(i+0.5)*T/3,(j+0.5)*T/4,T*0.07,acc); }
+  const tex=new THREE.CanvasTexture(cvs); tex.colorSpace=THREE.SRGBColorSpace; tex.anisotropy=4; return tex;
+}
 function floorTexture(){
   const th=FLOOR_THEMES.find(f=>f.id===S.floorTheme)||FLOOR_THEMES[0];
   const T=48, pat=th.pattern||'check';
@@ -681,7 +709,9 @@ function buildModularWalls(parent, wt, roomW, roomD){
       const w=tpl.clone(true);
       const box=new THREE.Box3().setFromObject(w); const c=new THREE.Vector3(); box.getCenter(c);
       w.position.x-=c.x; w.position.z-=c.z; w.position.y-=box.min.y;   /* centre + ground */
-      if (tint) w.traverse(o=>{ if (o.isMesh&&o.material){ o.material=o.material.clone(); o.material.color=new THREE.Color(tint); } });
+      if (tint) w.traverse(o=>{ if (o.isMesh&&o.material){ o.material=o.material.clone();
+        if (wt.pattern){ o.material.map=wallPatternTex(tint, wt.pattern); o.material.color=new THREE.Color('#ffffff'); o.material.needsUpdate=true; }
+        else o.material.color=new THREE.Color(tint); } });
       const pivot=new THREE.Group(); pivot.add(w);
       pivot.scale.y=yScale; pivot.rotation.y=rotY; pivot.position.set(wx,0,wz);
       parent.add(pivot);
@@ -789,7 +819,8 @@ function makeTable(i){
   const lvl=S.tables[i];
   if (lvl<1) return makeTableProcedural(i);
   const g=new THREE.Group();
-  const entry=CATALOG.tables[Math.min(lvl,3)]||CATALOG.tables[1];
+  const base=CATALOG.tables[Math.min(lvl,3)]||CATALOG.tables[1];
+  const entry=S.tableColor?Object.assign({},base,{tint:S.tableColor}):base;
   g.add(buildFromCatalog(entry, ()=>makeTableProcedural(i)));
   [[0,0.7,0],[0,-0.7,Math.PI]].forEach(([x,z,r])=>{
     const ch=buildFromCatalog({glb:M+'chair.glb', fitH:0.72, rotY:r}, ()=>new THREE.Group());
@@ -942,13 +973,13 @@ function ensureObj(w){
 }
 function removeObj(w){ if (w.obj){ scene.remove(w.obj); disposeGroup(w.obj); w.obj=null; } }
 
-const elise=makeWalker({color:'#FF6FA5', skin:'#F7C69B', hat:costumeHat(S.costume), hair:'#6B3F2A'}, 5,5);
+const elise=makeWalker({color:S.elise.color, skin:S.elise.skin, hat:costumeHat(S.costume), hair:S.elise.hair}, 5,5);
 let staffWalkers=[];
 function syncStaff(){
   staffWalkers.forEach(removeObj);
   staffWalkers=S.staff.map(k=>{ const w=makeWalker({color:STAFF[k].color, skin:'#F7C69B', hair:STAFF[k].hair, hat:k==='baker'?'chef':null}, 2,3); w.role=k; return w; });
 }
-function rebuildElise(){ removeObj(elise); elise.cfg.hat=costumeHat(S.costume); }
+function rebuildElise(){ removeObj(elise); elise.cfg.hat=costumeHat(S.costume); elise.cfg.color=S.elise.color; elise.cfg.skin=S.elise.skin; elise.cfg.hair=S.elise.hair; }
 
 function walkTo(w,tx,ty){
   const p=findPath(Math.round(w.x),Math.round(w.y),tx,ty);
@@ -1501,6 +1532,27 @@ function cookieShapeGeom(shape){
   } else if (shape==='flower'){
     for (let i=0;i<=72;i++){ const t=i/72*Math.PI*2, r=0.68+0.32*Math.cos(6*t); const px=Math.cos(t)*r, py=Math.sin(t)*r; if(i===0)s.moveTo(px,py); else s.lineTo(px,py); }
     s.closePath();
+  } else if (shape==='square'){
+    const q=0.9,r=0.28; s.moveTo(-q+r,-q); s.lineTo(q-r,-q); s.quadraticCurveTo(q,-q,q,-q+r); s.lineTo(q,q-r);
+    s.quadraticCurveTo(q,q,q-r,q); s.lineTo(-q+r,q); s.quadraticCurveTo(-q,q,-q,q-r); s.lineTo(-q,-q+r); s.quadraticCurveTo(-q,-q,-q+r,-q);
+  } else if (shape==='gift'){
+    const q=0.92; s.moveTo(-q,-q); s.lineTo(q,-q); s.lineTo(q,q); s.lineTo(-q,q); s.closePath();
+  } else if (shape==='diamond'){
+    s.moveTo(0,1); s.lineTo(0.78,0); s.lineTo(0,-1); s.lineTo(-0.78,0); s.closePath();
+  } else if (shape==='hexagon'){
+    for (let i=0;i<6;i++){ const a=Math.PI/3*i+Math.PI/6, px=Math.cos(a)*0.98, py=Math.sin(a)*0.98; i?s.lineTo(px,py):s.moveTo(px,py); } s.closePath();
+  } else if (shape==='egg'){
+    for (let i=0;i<=48;i++){ const t=i/48*Math.PI*2, px=Math.cos(t)*0.72, py=Math.sin(t)*(t>Math.PI?0.78:1.0); i?s.lineTo(px,py):s.moveTo(px,py); } s.closePath();
+  } else if (shape==='moon'){
+    s.moveTo(0.15,0.96); s.bezierCurveTo(-1.15,0.55,-1.15,-0.55,0.15,-0.96); s.bezierCurveTo(-0.32,-0.4,-0.32,0.4,0.15,0.96);
+  } else if (shape==='cloud'){
+    s.moveTo(-0.92,-0.28); s.quadraticCurveTo(-1.18,0.18,-0.58,0.34); s.quadraticCurveTo(-0.52,0.78,0.03,0.58);
+    s.quadraticCurveTo(0.42,0.86,0.7,0.38); s.quadraticCurveTo(1.16,0.42,0.92,-0.08); s.quadraticCurveTo(1.03,-0.5,0.5,-0.42); s.lineTo(-0.92,-0.28);
+  } else if (shape==='butterfly'){
+    s.moveTo(0,0.12);
+    s.bezierCurveTo(0.28,0.98,1.05,0.85,0.86,0.12); s.bezierCurveTo(1.05,-0.2,0.5,-0.78,0.12,-0.22);
+    s.lineTo(0,-0.34); s.lineTo(-0.12,-0.22);
+    s.bezierCurveTo(-0.5,-0.78,-1.05,-0.2,-0.86,0.12); s.bezierCurveTo(-1.05,0.85,-0.28,0.98,0,0.12);
   } else { /* star */
     const spikes=5, outer=1, inner=0.45;
     for (let i=0;i<spikes*2;i++){ const r=i%2?inner:outer; const a=Math.PI/spikes*i-Math.PI/2; const px=Math.cos(a)*r, py=Math.sin(a)*r; if(i===0)s.moveTo(px,py); else s.lineTo(px,py); }
@@ -1911,6 +1963,13 @@ function renderMy(){
     `<div class="theme-swatch ${S.wallTheme===w.id?'sel':''}" data-wall="${w.id}" style="background:linear-gradient(135deg,${w.right},${w.left})">${w.name}</div>`).join('');
   $('floorThemes').innerHTML=FLOOR_THEMES.map(f=>
     `<div class="theme-swatch ${S.floorTheme===f.id?'sel':''}" data-floor="${f.id}" style="background:repeating-linear-gradient(45deg,${f.a} 0 8px,${f.b} 8px 16px);color:#5C3A21;text-shadow:none">${f.name}</div>`).join('');
+  const dotRow=(arr,sel,attr)=>arr.map(col=>col==null
+    ? `<div class="color-dot none ${sel==null?'sel':''}" data-${attr}="none">🚫</div>`
+    : `<div class="color-dot ${sel===col?'sel':''}" style="background:${col}" data-${attr}="${col}"></div>`).join('');
+  $('eliseSkin').innerHTML=dotRow(SKINS, S.elise.skin, 'skin');
+  $('eliseHair').innerHTML=dotRow(HAIRS, S.elise.hair, 'hair');
+  $('eliseOutfit').innerHTML=dotRow(OUTFITS, S.elise.color, 'outfit');
+  $('tableColors').innerHTML=dotRow(TABLECLOTHS, S.tableColor, 'tcloth');
   $('priceList').innerHTML=`<div class="menu-head">🍰 ${S.shopName} 🍰</div>`+S.unlockedItems.map(k=>{
     const v=ITEMS[k], p=S.prices[k]!=null?S.prices[k]:v.base;
     const mood=p>v.base*2?'😤':p>v.base*1.4?'😐':'😍';
@@ -1941,6 +2000,10 @@ function renderMy(){
   $('logoColors').querySelectorAll('[data-lc]').forEach(b=>b.onclick=()=>{ S.logo.color=b.dataset.lc; save(); renderTop(); renderMy(); chime(); });
   $('wallThemes').querySelectorAll('[data-wall]').forEach(b=>b.onclick=()=>{ S.wallTheme=b.dataset.wall; save(); buildRoom(); renderMy(); chime(); });
   $('floorThemes').querySelectorAll('[data-floor]').forEach(b=>b.onclick=()=>{ S.floorTheme=b.dataset.floor; save(); buildRoom(); renderMy(); chime(); });
+  $('eliseSkin').querySelectorAll('[data-skin]').forEach(b=>b.onclick=()=>{ S.elise.skin=b.dataset.skin; rebuildElise(); save(); renderMy(); chime(); });
+  $('eliseHair').querySelectorAll('[data-hair]').forEach(b=>b.onclick=()=>{ S.elise.hair=b.dataset.hair; rebuildElise(); save(); renderMy(); chime(); });
+  $('eliseOutfit').querySelectorAll('[data-outfit]').forEach(b=>b.onclick=()=>{ S.elise.color=b.dataset.outfit; rebuildElise(); save(); renderMy(); chime(); });
+  $('tableColors').querySelectorAll('[data-tcloth]').forEach(b=>b.onclick=()=>{ S.tableColor=b.dataset.tcloth==='none'?null:b.dataset.tcloth; save(); try{ if(renderer) buildTables(); }catch(e){} renderMy(); chime(); });
   $('priceList').querySelectorAll('[data-price]').forEach(b=>b.onclick=()=>{ const [k,d]=b.dataset.price.split(':'); const cur=S.prices[k]!=null?S.prices[k]:ITEMS[k].base; S.prices[k]=Math.max(1,Math.min(99,cur+(+d))); save(); renderMy(); try{ if(renderer) buildMenuBoard(); }catch(e){} beep(500,.05); });
 }
 $('nameInput').addEventListener('input',e=>{ S.shopName=e.target.value||"Elise’s Bakery"; save(); renderTop(); buildRoom(); });
