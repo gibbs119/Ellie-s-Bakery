@@ -1,7 +1,8 @@
 import { defineConfig } from 'vite';
 
 // GitHub Pages project site serves from /<repo>/. Override with BASE_PATH if
-// you deploy elsewhere (e.g. Firebase Hosting uses '/').
+// you deploy elsewhere that serves from the root (e.g. Vercel uses '/', set by
+// vercel.json).
 const base = process.env.BASE_PATH ?? '/Ellie-s-Bakery/';
 
 export default defineConfig({
