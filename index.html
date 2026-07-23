@@ -106,7 +106,9 @@
   .logo-grid{display:grid; grid-template-columns:repeat(6,1fr); gap:8px; margin-top:4px;}
   .logo-opt{font-size:24px; padding:8px 0; border-radius:12px; background:#F6EBDD; text-align:center;}
   .logo-opt.sel{background:var(--butter); box-shadow:inset 0 0 0 3px var(--pink);}
-  .color-row{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;}
+  .color-row{display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;}
+  .mini-label{font-weight:800; font-size:12px; color:var(--choc-soft); margin-top:10px;}
+  .color-dot.none{background:#fff !important; display:flex; align-items:center; justify-content:center; font-size:16px; color:var(--choc-soft);}
   .color-dot{width:38px; height:38px; border-radius:50%; box-shadow:0 3px 0 rgba(92,58,33,.15);}
   .color-dot.sel{box-shadow:0 0 0 4px #fff, 0 0 0 7px var(--pink);}
   .theme-row{display:flex; gap:8px; margin-top:6px; flex-wrap:wrap;}
@@ -293,6 +295,14 @@
     <div class="panel"><div class="theme-row" id="wallThemes"></div></div>
     <div class="section-title">🟫 Floor Style</div>
     <div class="panel"><div class="theme-row" id="floorThemes"></div></div>
+    <div class="section-title">👧 Design Elise</div>
+    <div class="panel">
+      <div class="mini-label">Skin</div><div class="color-row" id="eliseSkin"></div>
+      <div class="mini-label">Hair</div><div class="color-row" id="eliseHair"></div>
+      <div class="mini-label">Outfit</div><div class="color-row" id="eliseOutfit"></div>
+    </div>
+    <div class="section-title">🍽️ Tablecloth Color</div>
+    <div class="panel"><div class="color-row" id="tableColors"></div></div>
     <div class="section-title">📋 Menu Board</div>
     <div class="hint">You pick every price! Too high and customers say "too pricey!"</div>
     <div class="menu-board" id="priceList"></div>
