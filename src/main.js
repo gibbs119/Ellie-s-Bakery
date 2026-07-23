@@ -1157,6 +1157,7 @@ function frame(now){
   if (worldActive){
     controls.update();
     for (let i=0;i<mixers.length;i++) mixers[i].update(dt);
+    updateSteam(dt);
     updateWalkers(now);
     updateStationsFx(now);
     updateObjArrow(now);
@@ -1371,6 +1372,7 @@ function initStudioScene(){
   SS=new THREE.Scene();
   SCam=new THREE.PerspectiveCamera(42,1,0.1,50);
   SCam.position.set(0,2.4,4.6); SCam.lookAt(0,1.1,0);
+  try{ const spm=new THREE.PMREMGenerator(SR); SS.environment=spm.fromScene(new RoomEnvironment(),0.04).texture; SS.environmentIntensity=0.45; }catch(e){}
   SS.add(new THREE.HemisphereLight(0xffffff,0xFFE0C0,1.0));
   const d=new THREE.DirectionalLight(0xffffff,1.1); d.position.set(3,6,4); d.castShadow=true;
   d.shadow.mapSize.set(1024,1024); d.shadow.camera.near=0.5; d.shadow.camera.far=20;
@@ -1824,8 +1826,8 @@ function shopAct(a){
   const [kind,id]=a.split(':');
   if (kind==='item'){ const v=ITEMS[id]; if (S.coins<v.cost) return;
     S.coins-=v.cost; S.unlockedItems.push(id); if (S.prices[id]==null) S.prices[id]=v.base;
-    addStarPts(15); save(); renderAll(); confetti(); bigChime();
-    toast(v.ico+' '+v.name+' added to your menu!'); checkObjectives(); }
+    addStarPts(15); save(); renderAll(); try{ if(renderer) buildMenuBoard(); }catch(e){}
+    confetti(); bigChime(); toast(v.ico+' '+v.name+' added to your menu!'); checkObjectives(); }
   else if (kind==='furn'){ const v=FURN[id]; if (S.coins<v.cost) return;
     S.coins-=v.cost; S.inventory[id]=(S.inventory[id]||0)+1; addStarPts(8); save(); renderAll(); bigChime();
     toast(v.ico+' Bought! Tap 🔨 in your bakery to place it!'); buildSel=id; }
@@ -1914,7 +1916,7 @@ function renderMy(){
   $('logoColors').querySelectorAll('[data-lc]').forEach(b=>b.onclick=()=>{ S.logo.color=b.dataset.lc; save(); renderTop(); renderMy(); chime(); });
   $('wallThemes').querySelectorAll('[data-wall]').forEach(b=>b.onclick=()=>{ S.wallTheme=b.dataset.wall; save(); buildRoom(); renderMy(); chime(); });
   $('floorThemes').querySelectorAll('[data-floor]').forEach(b=>b.onclick=()=>{ S.floorTheme=b.dataset.floor; save(); buildRoom(); renderMy(); chime(); });
-  $('priceList').querySelectorAll('[data-price]').forEach(b=>b.onclick=()=>{ const [k,d]=b.dataset.price.split(':'); const cur=S.prices[k]!=null?S.prices[k]:ITEMS[k].base; S.prices[k]=Math.max(1,Math.min(99,cur+(+d))); save(); renderMy(); beep(500,.05); });
+  $('priceList').querySelectorAll('[data-price]').forEach(b=>b.onclick=()=>{ const [k,d]=b.dataset.price.split(':'); const cur=S.prices[k]!=null?S.prices[k]:ITEMS[k].base; S.prices[k]=Math.max(1,Math.min(99,cur+(+d))); save(); renderMy(); try{ if(renderer) buildMenuBoard(); }catch(e){} beep(500,.05); });
 }
 $('nameInput').addEventListener('input',e=>{ S.shopName=e.target.value||"Elise’s Bakery"; save(); renderTop(); buildRoom(); });
 $('resetBtn').onclick=function(){
@@ -1989,7 +1991,74 @@ function buildKitchen(){
   /* a mixer on one of the back counters */
   place({glb:M+'kitchenBlender.glb', fitH:0.4, rotY:Math.PI, yOffset:0.95}, 7, 0);
 }
-function rebuildWorld(){ buildRoom(); buildStations(); buildKitchen(); buildTables(); buildDivider(); syncFurniture(); }
+/* ---- in-world hanging menu board ---- */
+function rr(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
+function menuBoardTexture(){
+  const items=S.unlockedItems, Wd=460, pad=26, titleH=96, rowH=70;
+  const Hd=titleH+pad+items.length*rowH+pad;
+  const cvs=document.createElement('canvas'); cvs.width=Wd; cvs.height=Hd;
+  const c=cvs.getContext('2d');
+  c.fillStyle='#FFFDF8'; rr(c,6,6,Wd-12,Hd-12,30); c.fill();
+  c.lineWidth=10; c.strokeStyle='#FF6FA5'; rr(c,12,12,Wd-24,Hd-24,26); c.stroke();
+  c.textAlign='center'; c.textBaseline='middle'; c.fillStyle='#B93B60';
+  c.font="800 48px 'Baloo 2','Nunito',sans-serif"; c.fillText('📋 Menu', Wd/2, titleH/2+14);
+  items.forEach((k,i)=>{
+    const v=ITEMS[k], p=S.prices[k]!=null?S.prices[k]:v.base, y=titleH+pad+i*rowH+rowH/2;
+    c.textAlign='left'; c.textBaseline='middle';
+    c.font="42px 'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji',sans-serif"; c.fillText(v.ico, pad+8, y);
+    c.fillStyle='#5C3A21'; c.font="700 32px 'Baloo 2','Nunito',sans-serif"; c.fillText(v.name, pad+70, y);
+    c.textAlign='right'; c.fillStyle='#E84E8A'; c.font="800 34px 'Baloo 2','Nunito',sans-serif"; c.fillText('🪙'+p, Wd-pad-8, y);
+    if (i<items.length-1){ c.strokeStyle='#EAD3BC'; c.setLineDash([2,7]); c.lineWidth=2;
+      c.beginPath(); c.moveTo(pad+8,y+rowH/2); c.lineTo(Wd-pad-8,y+rowH/2); c.stroke(); c.setLineDash([]); }
+  });
+  const tex=new THREE.CanvasTexture(cvs); tex.colorSpace=THREE.SRGBColorSpace; tex.anisotropy=4;
+  return {tex, aspect:Wd/Hd};
+}
+let menuBoardGroup=null;
+function buildMenuBoard(){
+  if (menuBoardGroup){ scene.remove(menuBoardGroup); disposeGroup(menuBoardGroup); }
+  menuBoardGroup=new THREE.Group(); scene.add(menuBoardGroup);
+  const {tex,aspect}=menuBoardTexture();
+  const h=1.9, w=h*aspect;
+  const grp=new THREE.Group();
+  const back=meshOf(G.box(w+0.14,h+0.14,0.08), mat('#8A5A44')); back.position.z=-0.05; grp.add(back);
+  const board=new THREE.Mesh(new THREE.PlaneGeometry(w,h), new THREE.MeshBasicMaterial({map:tex, transparent:true}));
+  board.position.z=0.001; grp.add(board);
+  [-w*0.36,w*0.36].forEach(x=>{ const rod=meshOf(G.cyl(0.018,0.018,0.7,6), mat('#C9A24B'),false); rod.position.set(x,h/2+0.35,0); grp.add(rod); });
+  const p=W(Math.floor(GX/2), DIV_Y);
+  grp.position.set(0, 2.15, p.z-0.05);
+  menuBoardGroup.add(grp);
+}
+/* ---- steam / warmth particles ---- */
+let PUFF=null, steamGroup=null, steamParts=[];
+function puffTexture(){
+  const cvs=document.createElement('canvas'); cvs.width=cvs.height=64; const c=cvs.getContext('2d');
+  const g=c.createRadialGradient(32,32,1,32,32,31); g.addColorStop(0,'rgba(255,255,255,.95)'); g.addColorStop(1,'rgba(255,255,255,0)');
+  c.fillStyle=g; c.fillRect(0,0,64,64);
+  return new THREE.CanvasTexture(cvs);
+}
+function buildSteam(){
+  if (steamGroup){ scene.remove(steamGroup); steamParts.forEach(s=>s.material.dispose()); }
+  steamGroup=new THREE.Group(); scene.add(steamGroup); steamParts=[];
+  if (!PUFF) PUFF=puffTexture();
+  const emitters=[{p:W(STATION_POS.oven.x,STATION_POS.oven.y), y:1.5, n:5}];
+  S.placed.filter(p=>p.type==='coffee').forEach(p=>emitters.push({p:W(p.x,p.y), y:0.9, n:3}));
+  emitters.forEach(e=>{
+    for (let i=0;i<e.n;i++){
+      const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:PUFF, transparent:true, opacity:0, depthWrite:false}));
+      spr.userData={x:e.p.x, y0:e.y, z:e.p.z, t:Math.random()}; spr.position.set(e.p.x,e.y,e.p.z);
+      steamGroup.add(spr); steamParts.push(spr);
+    }
+  });
+}
+function updateSteam(dt){
+  for (let i=0;i<steamParts.length;i++){ const spr=steamParts[i], u=spr.userData;
+    u.t+=dt*0.35; if (u.t>1) u.t-=1; const l=u.t;
+    spr.position.set(u.x+Math.sin(l*5+u.x)*0.13, u.y0+l*1.0, u.z);
+    spr.material.opacity=Math.sin(l*Math.PI)*0.45; spr.scale.setScalar(0.22+l*0.42);
+  }
+}
+function rebuildWorld(){ buildRoom(); buildStations(); buildKitchen(); buildTables(); buildDivider(); buildMenuBoard(); buildSteam(); syncFurniture(); }
 document.querySelectorAll('.tab').forEach(t=>{
   t.addEventListener('click',()=>{
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
