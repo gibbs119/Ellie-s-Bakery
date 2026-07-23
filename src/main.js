@@ -1069,7 +1069,7 @@ function spawnCustomer(){
   const c=makeWalker(cfg, DOOR.x, DOOR.y);
   c.id=++custId; c.kid=kid; c.order=order; c.party=order.item==='animalCake';
   c.state='toQueue'; c.qIdx=q.length;
-  let patience=90+(S.staff.includes('waitress')?45:0);
+  let patience=140+(S.staff.includes('waitress')?45:0);
   if (kid&&S.placed.some(p=>p.type==='playArea')) patience+=60;
   c.patience=patience; c.maxP=patience;
   const spot=QUEUE_SPOTS[c.qIdx];
@@ -1130,7 +1130,9 @@ function logicTick(){
   secs++;
   customers.forEach(c=>{
     if (c.state==='toQueue'&&!c.path.length) c.state='queue';
-    if (c.state==='queue'){
+    /* No one loses patience while an order is being made — Elise can take all
+       the time she needs in the studio. */
+    if (c.state==='queue' && !studioOpen){
       c.patience--;
       if (c.patience<=0){ c.state='leaving'; walkTo(c,DOOR.x,DOOR.y); shiftQueue(); toast('👋 "Bye! Maybe next time!"'); }
     }
