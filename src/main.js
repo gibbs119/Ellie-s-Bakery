@@ -1125,7 +1125,7 @@ function projectToScreen(w){
 /* =========================================================
    LOGIC TICK (1s)  (ported)
 ========================================================= */
-let secs=0, ovenGlow=0;
+let secs=0, ovenGlow=0, spawnCooldown=6;
 function logicTick(){
   secs++;
   customers.forEach(c=>{
@@ -1159,8 +1159,15 @@ function logicTick(){
     if (!d.w.path.length&&c.state!=='waitingFood'&&c.state!=='toSeat'){ setCarry(d.w,null); return false; }
     return true;
   });
-  const cap=QUEUE_SPOTS.length;
-  if (queueList().length<cap && Math.random()<0.4) spawnCustomer();
+  /* Gentle arrivals: keep the line short, space guests well apart, and never
+     let a new guest show up while she's mid-order — a constant full line is
+     overwhelming. */
+  const cap=2;                       // shorter, calmer line (was 3)
+  if (spawnCooldown>0) spawnCooldown--;
+  if (!studioOpen && queueList().length<cap && spawnCooldown<=0 && Math.random()<0.6){
+    spawnCustomer();
+    spawnCooldown = 10 + Math.floor(Math.random()*6);  // ~10–15s between guests
+  }
   staffWalkers.forEach(w=>{
     if (w.role==='baker'){
       if (w.cook>0){
