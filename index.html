@@ -237,6 +237,29 @@
   #pickerBox h3{margin:0 0 10px; font-size:18px;}
   #pickerRow{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;}
 
+  /* ============ GOALS + STICKERS ============ */
+  .mission{background:var(--card); border-radius:var(--radius); padding:12px 14px; box-shadow:var(--shadow);
+    margin-bottom:10px; display:flex; align-items:center; gap:12px;}
+  .mission .m-ico{font-size:30px; flex-shrink:0;}
+  .mission .m-mid{flex:1; min-width:0;}
+  .mission .m-name{font-family:'Baloo 2'; font-weight:800; font-size:15px; line-height:1.2;}
+  .mission .m-bar{height:12px; background:#F0E2D2; border-radius:999px; margin-top:6px; overflow:hidden;}
+  .mission .m-fill{height:100%; background:linear-gradient(90deg,#FF9EC4,#FFD166); border-radius:999px;
+    transition:width .35s ease;}
+  .mission .m-sub{font-size:11px; font-weight:800; color:var(--choc-soft); margin-top:3px;}
+  .mission .m-prize{font-family:'Baloo 2'; font-weight:800; font-size:14px; color:var(--pink-dark); flex-shrink:0;}
+  .mission.done{background:#EAF9EF;}
+  .mission.done .m-fill{background:linear-gradient(90deg,#6ECEB2,#A8E6CF);}
+  .sticker-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(72px,1fr)); gap:10px;}
+  .sticker{aspect-ratio:1; border-radius:18px; background:#F6EADC; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:2px; padding:4px; text-align:center;}
+  .sticker .s-ico{font-size:26px; filter:grayscale(1) opacity(.35);}
+  .sticker .s-name{font-size:9px; font-weight:800; color:var(--choc-soft); line-height:1.1;}
+  .sticker.got{background:linear-gradient(135deg,#FFF0D8,#FFE0EE); box-shadow:inset 0 -3px 0 rgba(92,58,33,.08);}
+  .sticker.got .s-ico{filter:none; animation:stickerPop .5s ease;}
+  .sticker.got .s-name{color:var(--pink-dark);}
+  @keyframes stickerPop{0%{transform:scale(.4) rotate(-18deg)}70%{transform:scale(1.18) rotate(6deg)}100%{transform:scale(1)}}
+
   #loading{position:fixed; inset:0; background:var(--cream); z-index:80; display:flex; flex-direction:column;
     align-items:center; justify-content:center; gap:14px;}
   #loading .spin{font-size:64px; animation:spin 1.4s linear infinite;}
@@ -285,6 +308,15 @@
     <div class="grid" id="shopCostumes"></div>
   </div>
 
+  <div class="screen" id="scr-goals">
+    <div class="section-title">🎯 Today's Goals</div>
+    <div class="hint">Finish a goal to earn coins — a new one appears right after!</div>
+    <div id="missionList"></div>
+    <div class="section-title">🏅 Sticker Book</div>
+    <div class="hint" id="stickerCount">Collect stickers for doing special things!</div>
+    <div class="panel"><div class="sticker-grid" id="stickerGrid"></div></div>
+  </div>
+
   <div class="screen" id="scr-my">
     <div class="section-title">✏️ Shop Name</div>
     <div class="panel"><input type="text" id="nameInput" maxlength="24" placeholder="Type your bakery name!"></div>
@@ -310,6 +342,11 @@
     <div class="menu-board" id="priceList"></div>
     <div class="section-title">📊 My Bakery</div>
     <div class="panel" id="statsPanel"></div>
+    <div class="section-title">🔊 Sound</div>
+    <div class="panel">
+      <div class="mini-label">Volume</div>
+      <input type="range" id="volSlider" min="0" max="100" step="5" style="width:100%">
+    </div>
     <div class="section-title">⚙️ Graphics (grown-ups)</div>
     <div class="hint">On an older tablet, pick <b>Smooth</b> or <b>Fastest</b> if the bakery feels slow.</div>
     <div class="panel"><div class="theme-row" id="qualityRow"></div></div>
@@ -320,6 +357,7 @@
 <div id="tabbar">
   <button class="tab active" data-scr="scr-world">🏠<span>Bakery</span><span class="badge" id="custBadge" style="display:none">0</span></button>
   <button class="tab" data-scr="scr-shop">🛍️<span>Shop</span></button>
+  <button class="tab" data-scr="scr-goals">🎯<span>Goals</span><span class="badge" id="goalBadge" style="display:none">0</span></button>
   <button class="tab" data-scr="scr-my">🎀<span>My Shop</span></button>
 </div>
 
