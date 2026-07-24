@@ -1,9 +1,11 @@
 import { defineConfig } from 'vite';
 
-// GitHub Pages project site serves from /<repo>/. Override with BASE_PATH if
-// you deploy elsewhere that serves from the root (e.g. Vercel uses '/', set by
-// vercel.json).
-const base = process.env.BASE_PATH ?? '/Ellie-s-Bakery/';
+// A relative base ('./') makes one build work no matter where it's hosted —
+// the domain root (Vercel, Firebase) or a project subpath (GitHub Pages at
+// /<repo>/) — because every asset URL is resolved relative to index.html.
+// This avoids the classic "blank page / stuck loading" from a wrong base path.
+// Can still be overridden with BASE_PATH for an absolute path if ever needed.
+const base = process.env.BASE_PATH ?? './';
 
 export default defineConfig({
   base,
