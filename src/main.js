@@ -678,7 +678,7 @@ function buildRoom(){
   const door=meshOf(G.box(0.9,1.7,0.12), mat('#C77DAE'));
   door.position.set(dpos.x, 0.85, roomD/2-0.05); roomGroup.add(door);
   const doorTop=meshOf(G.cyl(0.45,0.45,0.12,16), mat('#C77DAE'));
-  doorTop.rotation.x=Math.PI/2; doorTop.position.set(dpos.x,1.7,roomD/2-0.05);
+  doorTop.rotation.x=Math.PI/2; doorTop.position.set(dpos.x,1.7,roomD/2-0.05); roomGroup.add(doorTop);
   /* sign above back wall */
   const sign=meshOf(new THREE.PlaneGeometry(4.2,1.05), new THREE.MeshBasicMaterial({map:signTexture(),transparent:true}),false);
   sign.position.set(0, wallH-0.2, -roomD/2+0.06); roomGroup.add(sign);
@@ -1307,13 +1307,8 @@ function updateWalkers(now){
   });
 }
 function updateStationsFx(now){
-  /* oven glow */
-  const ov=stationObjs.oven;
-  if (ov){ ov.traverse(o=>{ if (o.material&&o.material.emissive&&o.userData!==undefined){} }); }
-  /* bob zzz + turntable-free; animate zzz sprites */
-  [stationObjs, ...tableObjs].forEach(()=>{});
+  /* gently bob the sleepy 💤 sprites on unfixed stations/tables */
   scene.traverse(o=>{ if (o.userData&&o.userData.zzz){ o.position.y = (o.parent&&o.parent.userData.station?1.5:1.0)+Math.sin(now/400)*0.06; } });
-  /* fountain shimmer */
 }
 function updateObjArrow(now){
   const obj=currentObjective();
