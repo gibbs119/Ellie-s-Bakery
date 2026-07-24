@@ -45,6 +45,18 @@ so a young child can follow along with no reading required:
 experimenting is never punished — matching their exact request just earns a small
 bonus. Nobody loses patience or walks in while she's decorating, either.
 
+## 🎯 Goals & stickers
+
+The **Goals** tab keeps three little challenges on the go — *serve 3 treats*,
+*put 5 toppings on one treat*, *earn 40 coins*. They have **no timer and can't be
+failed**: finishing one pays out coins instantly and a fresh goal takes its place,
+so there's always something to aim for. Goals only offer treats she's unlocked.
+
+Underneath is a **sticker book** — 22 collectible stickers for milestones like
+first treat, 50 treats, a birthday party, ⭐5, and a full menu. Stickers show as
+`???` until earned, then pop into place. A badge on the tab shows when something
+new is waiting.
+
 ## ✨ What you can customize
 
 - **The food:** cakes (1–3 tiers, chocolate/vanilla/strawberry/mint/rainbow),
@@ -125,8 +137,11 @@ public/                 static assets served at the site root
   or pin a level in *My Shop → Graphics*. Also recovers from WebGL context loss,
   and the build targets older Safari (iOS 13+).
 - Gentle touch orbit/zoom controls with limits so a young child can't get lost.
-- **Audio:** synthesized music + sound effects (no audio files), with a 🔊 mute
-  toggle in the top bar that remembers your choice.
+- **Audio:** everything is synthesized with the Web Audio API — no audio files, so
+  it works offline. A gentle I–V–vi–IV tune plays with a bass note, chord pad and
+  a wandering pentatonic melody over separate music/effects buses (lightly
+  compressed), plus distinct effects for coins, the oven bell, and prizes. 🔊 mute
+  lives in the top bar and there's a volume slider in *My Shop → Sound*.
 - Progress saves to `localStorage` on the device — no backend or accounts. The
   **🔄 Start Over** button (in *My Shop*) resets everything.
 

@@ -189,6 +189,7 @@ const DEFAULT = () => ({
   elise:{skin:'#F7C69B', hair:'#6B3F2A', color:'#FF6FA5'},
   tableColor:null,
   objIdx:0,
+  missions:[], missionsDone:0, stickers:[], goalNews:0,
 });
 let S = DEFAULT();
 try { const raw = store.get('eliseBakery3D'); if (raw) S = Object.assign(DEFAULT(), JSON.parse(raw)); } catch(e){}
@@ -261,65 +262,110 @@ function coinFlyScreen(sx, sy, amt){
   document.body.appendChild(c);
   requestAnimationFrame(()=>{ c.style.left='calc(100vw - 92px)'; c.style.top='12px'; c.style.opacity='0.2'; });
   setTimeout(()=>c.remove(), 780);
+  coinSfx();
 }
-/* ---- Audio: synthesized SFX + gentle looping music, with mute ---- */
-let AC=null, masterGain=null, musicGain=null;
+/* =========================================================
+   AUDIO — everything is synthesized (no audio files), so the game stays
+   self-contained and works offline. A gentle chord-based tune plays under
+   separate music/effects buses, with mute and a volume slider.
+========================================================= */
+let AC=null, masterGain=null, musicGain=null, sfxGain=null, musicComp=null;
 let muted = store.get('eliseMute')==='1';
+let volume = (()=>{ const v=parseFloat(store.get('eliseVol')); return isNaN(v)?0.7:Math.max(0,Math.min(1,v)); })();
 function audioEnsure(){
   if (AC) { if (AC.state==='suspended') AC.resume(); return; }
   try{
     AC = new (window.AudioContext||window.webkitAudioContext)();
-    masterGain=AC.createGain(); masterGain.gain.value=muted?0:1; masterGain.connect(AC.destination);
-    musicGain=AC.createGain(); musicGain.gain.value=0.10; musicGain.connect(masterGain);
+    masterGain=AC.createGain(); masterGain.gain.value=muted?0:volume;
+    /* a touch of compression keeps overlapping sounds from getting harsh */
+    try{
+      musicComp=AC.createDynamicsCompressor();
+      musicComp.threshold.value=-18; musicComp.ratio.value=3; musicComp.attack.value=0.01; musicComp.release.value=0.25;
+      musicComp.connect(AC.destination); masterGain.connect(musicComp);
+    }catch(e){ masterGain.connect(AC.destination); }
+    musicGain=AC.createGain(); musicGain.gain.value=0.075; musicGain.connect(masterGain);
+    sfxGain=AC.createGain();   sfxGain.gain.value=0.9;     sfxGain.connect(masterGain);
     startMusic();
   }catch(e){}
 }
-function beep(freq=600, dur=.09, type='sine'){
+/* one shaped note; `bend` slides the pitch for a livelier sound */
+function tone(freq, dur, opts){
   if (muted) return;
   try{
     audioEnsure(); if (!AC) return;
-    const o=AC.createOscillator(), g=AC.createGain();
-    o.type=type; o.frequency.value=freq; o.connect(g); g.connect(masterGain);
-    g.gain.setValueAtTime(.12, AC.currentTime);
-    g.gain.exponentialRampToValueAtTime(.001, AC.currentTime+dur);
-    o.start(); o.stop(AC.currentTime+dur);
+    const o=opts||{}, t0=AC.currentTime+(o.delay||0);
+    const osc=AC.createOscillator(), g=AC.createGain();
+    osc.type=o.type||'sine';
+    osc.frequency.setValueAtTime(freq,t0);
+    if (o.bend) osc.frequency.exponentialRampToValueAtTime(Math.max(1,freq*o.bend), t0+dur);
+    const peak=(o.gain!=null?o.gain:0.12);
+    g.gain.setValueAtTime(0.0001,t0);
+    g.gain.linearRampToValueAtTime(peak, t0+(o.attack||0.012));
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+    osc.connect(g); g.connect(o.bus||sfxGain||masterGain);
+    osc.start(t0); osc.stop(t0+dur+0.03);
   }catch(e){}
 }
-const chime=()=>{ beep(660,.08); setTimeout(()=>beep(880,.1),90); };
-const bigChime=()=>{ beep(523,.09); setTimeout(()=>beep(659,.09),100); setTimeout(()=>beep(784,.14),200); };
-/* looping cheerful melody (major pentatonic), scheduled with a lookahead */
-const MELODY=[523.25,587.33,659.25,783.99,659.25,587.33,523.25,659.25, 698.46,659.25,587.33,523.25,587.33,659.25,523.25,392.00];
-let musicStep=0, musicTimer=null, nextNoteAt=0;
-function noteOn(freq,time,dur){
+function beep(freq=600, dur=.09, type='sine'){ tone(freq,dur,{type,gain:0.1}); }
+/* --- effects with a bit of personality --- */
+const chime=()=>{ tone(784,0.10,{type:'triangle',gain:0.10}); tone(1046.5,0.14,{type:'triangle',gain:0.08,delay:0.07}); };
+const bigChime=()=>{ [523.25,659.25,783.99].forEach((f,i)=>tone(f,0.20,{type:'triangle',gain:0.10,delay:i*0.075})); };
+/* sparkly ascending run for goals + stickers */
+function prizeJingle(){ [523.25,659.25,783.99,1046.5,1318.5].forEach((f,i)=>tone(f,0.28,{type:'triangle',gain:0.095,delay:i*0.085})); }
+/* bright shimmer when coins land */
+function coinSfx(){ tone(1318.5,0.10,{type:'square',gain:0.045}); tone(1975.5,0.12,{type:'sine',gain:0.05,delay:0.06}); }
+/* warm "your bake is ready" bell */
+function ovenDing(){ tone(880,0.5,{type:'sine',gain:0.11}); tone(1320,0.6,{type:'sine',gain:0.05,delay:0.02}); }
+/* soft rounded tap for buttons */
+function tapSfx(){ tone(420,0.07,{type:'sine',gain:0.07,bend:1.25}); }
+
+/* --- music: I–V–vi–IV in C, with a bass note, a soft chord pad and a
+   pentatonic melody that wanders over the top --- */
+const CHORDS=[
+  {root:130.81, notes:[261.63,329.63,392.00]},  /* C  */
+  {root:98.00,  notes:[246.94,293.66,392.00]},  /* G  */
+  {root:110.00, notes:[261.63,329.63,440.00]},  /* Am */
+  {root:87.31,  notes:[261.63,349.23,440.00]},  /* F  */
+];
+const PENTA=[523.25,587.33,659.25,783.99,880.00,1046.50];
+let musicTimer=null, nextBeatAt=0, beatIdx=0;
+function scheduleBeat(time, idx){
   if (!AC) return;
-  const o=AC.createOscillator(), g=AC.createGain();
-  o.type='triangle'; o.frequency.value=freq; o.connect(g); g.connect(musicGain);
-  g.gain.setValueAtTime(0.0001,time); g.gain.linearRampToValueAtTime(0.5,time+0.02);
-  g.gain.exponentialRampToValueAtTime(0.0001,time+dur);
-  o.start(time); o.stop(time+dur+0.02);
-  /* soft bass every 4th note */
-  if (musicStep%4===0){ const b=AC.createOscillator(), bg=AC.createGain();
-    b.type='sine'; b.frequency.value=freq/2; b.connect(bg); bg.connect(musicGain);
-    bg.gain.setValueAtTime(0.0001,time); bg.gain.linearRampToValueAtTime(0.4,time+0.03);
-    bg.gain.exponentialRampToValueAtTime(0.0001,time+dur*1.6);
-    b.start(time); b.stop(time+dur*1.6+0.02); }
+  const bar=Math.floor(idx/4)%CHORDS.length, ch=CHORDS[bar], beat=idx%4;
+  if (beat===0){
+    /* bass + chord pad on the downbeat */
+    tone(ch.root, 1.5, {type:'sine', gain:0.16, delay:time-AC.currentTime, attack:0.04, bus:musicGain});
+    ch.notes.forEach((f,i)=>tone(f, 1.35, {type:'triangle', gain:0.055, delay:(time-AC.currentTime)+i*0.012, attack:0.12, bus:musicGain}));
+  }
+  /* a light melody note most beats, resting sometimes so it breathes */
+  if (Math.random()<(beat===0?0.55:0.72)){
+    const f=PENTA[Math.floor(Math.random()*PENTA.length)];
+    tone(f, 0.34, {type:'triangle', gain:0.07, delay:time-AC.currentTime, attack:0.02, bus:musicGain});
+  }
 }
 function startMusic(){
   if (!AC || musicTimer) return;
-  nextNoteAt=AC.currentTime+0.1;
-  const beat=0.34;
+  nextBeatAt=AC.currentTime+0.15;
+  const beatLen=0.46;
   musicTimer=setInterval(()=>{
-    if (!AC) return;
-    while (nextNoteAt < AC.currentTime+0.25){
-      noteOn(MELODY[musicStep%MELODY.length], nextNoteAt, beat*0.9);
-      musicStep++; nextNoteAt+=beat;
+    if (!AC || muted) return;
+    while (nextBeatAt < AC.currentTime+0.4){
+      scheduleBeat(nextBeatAt, beatIdx);
+      beatIdx++; nextBeatAt+=beatLen;
     }
-  }, 60);
+  }, 90);
+}
+function applyVolume(){
+  if (masterGain && AC) masterGain.gain.setTargetAtTime(muted?0:volume, AC.currentTime, 0.05);
 }
 function setMuted(m){
   muted=m; store.set('eliseMute', m?'1':'0');
-  if (masterGain && AC) masterGain.gain.setTargetAtTime(m?0:1, AC.currentTime, 0.05);
+  applyVolume();
   const b=$('muteBtn'); if (b) b.textContent=m?'🔇':'🔊';
+}
+function setVolume(v){
+  volume=Math.max(0,Math.min(1,v)); store.set('eliseVol', String(volume));
+  if (volume>0 && muted) setMuted(false); else applyVolume();
 }
 
 /* =========================================================
@@ -1231,6 +1277,8 @@ function payout(c,amt,party,msg){
   c.state='leaving'; walkTo(c,DOOR.x,DOOR.y);
   if (msg) toast(msg);
   checkObjectives();
+  bumpMissions('coins',amt);
+  checkStickers();
 }
 function projectToScreen(w){
   const wp=W(w.x,w.y); wp.y=1.2;
@@ -1361,6 +1409,153 @@ function checkObjectives(){
   while (S.objIdx<OBJECTIVES.length-1 && OBJECTIVES[S.objIdx].done()){ S.objIdx++; advanced=true; }
   if (advanced){ save(); confetti(12); chime(); toast('🧁 "Great job!" — Poppy'); }
   $('objText').textContent=currentObjective().text;
+}
+
+/* =========================================================
+   GOALS + STICKERS
+   ---------------------------------------------------------
+   Three little goals at a time. They never expire and never fail — finishing
+   one pays out instantly and a fresh one takes its place, so there's always
+   something to aim for without any time pressure.
+========================================================= */
+const MISSION_POOL = [
+  {id:'serve3',   ico:'🛎️', name:'Serve 3 treats',            goal:3,  prize:12, track:'serve'},
+  {id:'serve6',   ico:'🍽️', name:'Serve 6 treats',            goal:6,  prize:22, track:'serve'},
+  {id:'serve10',  ico:'🎪', name:'Serve 10 treats',            goal:10, prize:35, track:'serve'},
+  {id:'top5',     ico:'🍓', name:'Put 5 toppings on one treat', goal:5,  prize:15, track:'toppings'},
+  {id:'top8',     ico:'🌈', name:'Put 8 toppings on one treat', goal:8,  prize:25, track:'toppings'},
+  {id:'fancy2',   ico:'✨', name:'Serve 2 fancy treats (drizzle or topper)', goal:2, prize:20, track:'fancy'},
+  {id:'coins40',  ico:'🪙', name:'Earn 40 coins',              goal:40, prize:18, track:'coins'},
+  {id:'coins90',  ico:'💰', name:'Earn 90 coins',              goal:90, prize:35, track:'coins'},
+  {id:'upgrade1', ico:'⬆️', name:'Upgrade anything once',      goal:1,  prize:15, track:'upgrade'},
+  {id:'decorate3',ico:'🌷', name:'Place 3 decorations',        goal:3,  prize:16, track:'place'},
+  {id:'cake2',    ico:'🍰', name:'Serve 2 cakes',              goal:2,  prize:16, track:'item:cake'},
+  {id:'cookie2',  ico:'🍪', name:'Serve 2 cookies',            goal:2,  prize:16, track:'item:cookie', needs:'cookie'},
+  {id:'donut2',   ico:'🍩', name:'Serve 2 donuts',             goal:2,  prize:16, track:'item:donut',  needs:'donut'},
+  {id:'ice2',     ico:'🍦', name:'Serve 2 ice creams',         goal:2,  prize:18, track:'item:iceCream', needs:'iceCream'},
+  {id:'muffin2',  ico:'🧁', name:'Serve 2 muffins',            goal:2,  prize:18, track:'item:muffin', needs:'muffin'},
+  {id:'crois2',   ico:'🥐', name:'Serve 2 croissants',         goal:2,  prize:18, track:'item:croissant', needs:'croissant'},
+  {id:'party1',   ico:'🎂', name:'Throw a birthday party',     goal:1,  prize:30, track:'party', needs:'animalCake'},
+];
+function missionDef(id){ return MISSION_POOL.find(m=>m.id===id); }
+function missionEligible(m, activeIds){
+  if (activeIds.includes(m.id)) return false;
+  if (m.needs && !S.unlockedItems.includes(m.needs)) return false;
+  return true;
+}
+function pickMission(activeIds){
+  const opts=MISSION_POOL.filter(m=>missionEligible(m,activeIds));
+  if (!opts.length) return null;
+  return {id:rand(opts).id, prog:0};
+}
+function ensureMissions(){
+  if (!Array.isArray(S.missions)) S.missions=[];
+  S.missions=S.missions.filter(m=>m&&missionDef(m.id));
+  let guard=0;
+  while (S.missions.length<3 && guard++<20){
+    const nm=pickMission(S.missions.map(m=>m.id));
+    if (!nm) break;
+    S.missions.push(nm);
+  }
+}
+/* Advance any active goal watching `track`. `mode:'max'` means the value is a
+   best-so-far (like toppings on a single treat) rather than a running total. */
+function bumpMissions(track, amount, mode){
+  ensureMissions();
+  let completed=[];
+  S.missions.forEach(m=>{
+    const def=missionDef(m.id);
+    if (!def || def.track!==track || m.prog>=def.goal) return;
+    m.prog = mode==='max' ? Math.max(m.prog, amount) : m.prog+amount;
+    if (m.prog>=def.goal) completed.push(m);
+  });
+  if (completed.length){
+    completed.forEach(m=>{
+      const def=missionDef(m.id);
+      S.coins+=def.prize; S.earned+=def.prize; S.missionsDone=(S.missionsDone||0)+1;
+      addStarPts(8); goalNews();
+      toast(`🎯 Goal done! ${def.name} — 🪙 +${def.prize}`, 2400);
+      const i=S.missions.indexOf(m);
+      const repl=pickMission(S.missions.map(x=>x.id));
+      if (repl) S.missions[i]=repl; else S.missions.splice(i,1);
+    });
+    ensureMissions(); confetti(14); prizeJingle(); renderTop();
+  }
+  save(); renderGoals();
+}
+const STICKERS = [
+  {id:'first',    ico:'🎉', name:'First Treat',  when:()=>S.served>=1},
+  {id:'serve10',  ico:'🧁', name:'10 Treats',    when:()=>S.served>=10},
+  {id:'serve25',  ico:'🍰', name:'25 Treats',    when:()=>S.served>=25},
+  {id:'serve50',  ico:'🏆', name:'50 Treats',    when:()=>S.served>=50},
+  {id:'coins100', ico:'🪙', name:'100 Coins',    when:()=>S.earned>=100},
+  {id:'coins500', ico:'💎', name:'500 Coins',    when:()=>S.earned>=500},
+  {id:'party',    ico:'🎂', name:'Party Time',   when:()=>S.parties>=1},
+  {id:'star3',    ico:'⭐', name:'3 Stars',      when:()=>stars()>=3},
+  {id:'star5',    ico:'🌟', name:'5 Stars',      when:()=>stars()>=5},
+  {id:'helper',   ico:'🧑‍🍳', name:'Got a Helper', when:()=>S.staff.length>=1},
+  {id:'team',     ico:'👥', name:'Whole Team',   when:()=>S.staff.length>=2},
+  {id:'menu',     ico:'📋', name:'Full Menu',    when:()=>S.unlockedItems.length>=Object.keys(ITEMS).length},
+  {id:'decor',    ico:'🌷', name:'Decorator',    when:()=>S.placed.length>=5},
+  {id:'cosy',     ico:'🛋️', name:'Cosy Shop',    when:()=>S.placed.length>=12},
+  {id:'tables',   ico:'🪑', name:'Table Master', when:()=>S.tables.filter(t=>t>=1).length>=3},
+  {id:'oven3',    ico:'🔥', name:'Super Oven',   when:()=>S.stations.oven>=3},
+  {id:'case',     ico:'🪟', name:'Display Case', when:()=>S.stations.display>=1},
+  {id:'goals5',   ico:'🎯', name:'5 Goals',      when:()=>(S.missionsDone||0)>=5},
+  {id:'goals15',  ico:'🥇', name:'15 Goals',     when:()=>(S.missionsDone||0)>=15},
+  {id:'bigroom',  ico:'🏗️', name:'Big Bakery',   when:()=>S.upgrades.includes('expand')},
+  {id:'dressup',  ico:'👑', name:'Dress Up',     when:()=>S.costumes.length>=3},
+  {id:'clean',    ico:'🧼', name:'Squeaky Clean',when:()=>S.placed.some(p=>p.type==='washSink'||p.type==='kitchenSink')},
+];
+function checkStickers(){
+  if (!Array.isArray(S.stickers)) S.stickers=[];
+  const got=[];
+  STICKERS.forEach(s=>{
+    if (S.stickers.includes(s.id)) return;
+    let ok=false; try{ ok=s.when(); }catch(e){}
+    if (ok){ S.stickers.push(s.id); got.push(s); }
+  });
+  if (got.length){
+    goalNews(got.length); save(); confetti(18); prizeJingle();
+    const last=got[got.length-1];
+    toast(got.length>1
+      ? `🏅 ${got.length} new stickers! ${got.map(s=>s.ico).join(' ')}`
+      : `🏅 New sticker! ${last.ico} ${last.name}`, 2400);
+    renderGoals();
+  }
+}
+/* little "something new to see" badge on the Goals tab */
+function goalNews(n){ S.goalNews=(S.goalNews||0)+(n||1); updateGoalBadge(); }
+function updateGoalBadge(){
+  const b=$('goalBadge'); if (!b) return;
+  const n=S.goalNews||0;
+  b.style.display=n?'flex':'none'; b.textContent=n;
+}
+function renderGoals(){
+  const ml=$('missionList'); if (!ml) return;
+  ensureMissions();
+  ml.innerHTML=S.missions.map(m=>{
+    const def=missionDef(m.id); if (!def) return '';
+    const prog=Math.min(m.prog,def.goal), pct=Math.round(prog/def.goal*100);
+    return `<div class="mission ${prog>=def.goal?'done':''}">
+      <div class="m-ico">${def.ico}</div>
+      <div class="m-mid">
+        <div class="m-name">${def.name}</div>
+        <div class="m-bar"><div class="m-fill" style="width:${pct}%"></div></div>
+        <div class="m-sub">${prog} / ${def.goal}</div>
+      </div>
+      <div class="m-prize">🪙 ${def.prize}</div>
+    </div>`;
+  }).join('');
+  const have=(S.stickers||[]).length;
+  $('stickerCount').textContent=`You have ${have} of ${STICKERS.length} stickers!`;
+  $('stickerGrid').innerHTML=STICKERS.map(s=>{
+    const got=(S.stickers||[]).includes(s.id);
+    return `<div class="sticker ${got?'got':''}">
+      <div class="s-ico">${got?s.ico:'❓'}</div>
+      <div class="s-name">${got?s.name:'???'}</div>
+    </div>`;
+  }).join('');
 }
 
 /* =========================================================
@@ -1531,6 +1726,8 @@ function handleTap(clientX, clientY){
       S.placed.push({type:buildSel,x:gx,y:gy}); S.inventory[buildSel]--;
       if (!S.inventory[buildSel]) buildSel=null;
       save(); syncFurniture(); renderTray(); bigChime();
+      bumpMissions('place',1); checkStickers();
+      try{ if (renderer) buildSteam(); }catch(e){}   /* coffee bar makes steam */
     }
     return;
   }
@@ -1610,6 +1807,8 @@ $('sheetBtn').onclick=()=>{
   confetti(18); bigChime();
   toast(info.lvl<=0?'✨ All fixed up! ✨':'⬆️ Upgraded! So fancy!');
   checkObjectives();
+  bumpMissions('upgrade',1);
+  checkStickers();
 };
 $('sheetClose').onclick=()=>$('sheetWrap').classList.remove('show');
 $('sheetWrap').addEventListener('pointerdown',ev=>{ if (ev.target===$('sheetWrap')) $('sheetWrap').classList.remove('show'); });
@@ -1871,7 +2070,7 @@ function renderStudio2(){
       let p=0; const ov=$('bigOven');
       ov.onclick=()=>{ p=Math.min(100,p+pow); $('bigOvenFill').style.width=p+'%';
         ov.classList.remove('shake'); void ov.offsetWidth; ov.classList.add('shake'); beep(400+p*3,.05);
-        if (p>=100){ ov.onclick=null; ST.baked=true; bigChime(); setTimeout(nextStep,320); } };
+        if (p>=100){ ov.onclick=null; ST.baked=true; ovenDing(); setTimeout(nextStep,320); } };
       return;
     }
     B.innerHTML=`
@@ -1958,7 +2157,7 @@ function renderStudio2(){
       p=Math.min(100,p+pow); $('bigOvenFill').style.width=p+'%';
       ov.classList.remove('shake'); void ov.offsetWidth; ov.classList.add('shake');
       beep(400+p*3,.05);
-      if (p>=100){ ov.onclick=null; ST.baked=true; bigChime(); setTimeout(nextStep,320); }
+      if (p>=100){ ov.onclick=null; ST.baked=true; ovenDing(); setTimeout(nextStep,320); }
     };
     return;
   }
@@ -2053,6 +2252,8 @@ function serveNow(){
   if (o.item==='animalCake') bonus+=10;
   amt+=bonus;
   const party=o.item==='animalCake';
+  /* remember what she made before closeStudio() clears ST */
+  const decoCount=ST.decos.length, fancy=ST.drizzle!=='none'||ST.topper!=='none';
   closeStudio();
   if (c.state==='queue'||c.state==='toQueue') takeOrder(c);
   const idleW=staffWalkers.find(w=>w.role==='waitress'&&!deliveries.some(d=>d.w===w));
@@ -2061,6 +2262,12 @@ function serveNow(){
   const ico=ITEMS[o.item].ico;
   deliveries.push({custId:c.id,w:deliverer,amt,item:o.item,ico,phase:'pickup',msg:(party?'🎂 BEST BIRTHDAY EVER!':msg)+'<br>🪙 +'+amt});
   confetti(party?22:10); bigChime();
+  /* goal tracking for the craft itself (coins are counted when they pay) */
+  bumpMissions('serve',1);
+  bumpMissions('item:'+o.item,1);
+  bumpMissions('toppings',decoCount,'max');
+  if (fancy) bumpMissions('fancy',1);
+  if (party) bumpMissions('party',1);
 }
 
 /* =========================================================
@@ -2214,6 +2421,13 @@ function renderMy(){
   S.unlockedItems.forEach(k=>renderTreatThumb(k, data=>{
     const el=$('thumb-'+k); if (el && data) el.innerHTML=`<img src="${data}" alt="${ITEMS[k].name}">`;
   }));
+  /* volume */
+  const vs=$('volSlider');
+  if (vs){
+    vs.value=String(Math.round(volume*100));
+    vs.oninput=()=>{ setVolume(vs.value/100); };
+    vs.onchange=()=>{ audioEnsure(); chime(); };
+  }
   /* graphics quality picker (auto-detects, but grown-ups can pin a level) */
   const qOpts=[['auto','✨ Auto'],['2','Fancy'],['1','Smooth'],['0','Fastest']];
   $('qualityRow').innerHTML=qOpts.map(([v,label])=>{
@@ -2263,7 +2477,7 @@ function renderTop(){
   $('starPill').textContent='⭐ '+stars();
   const lg=$('shopLogo'); lg.textContent=S.logo.emoji; lg.style.background=S.logo.color;
 }
-function renderAll(){ renderTop(); renderShop(); renderMy(); renderTray(); }
+function renderAll(){ renderTop(); renderShop(); renderMy(); renderTray(); renderGoals(); updateGoalBadge(); checkStickers(); }
 /* the display-counter divider separating the baking area from the restaurant */
 let dividerGroup=null;
 function halfWall(tint){
@@ -2392,6 +2606,7 @@ document.querySelectorAll('.tab').forEach(t=>{
     document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
     t.classList.add('active'); $(t.dataset.scr).classList.add('active');
     if (t.dataset.scr==='scr-world'){ resize(); }
+    if (t.dataset.scr==='scr-goals'){ renderGoals(); S.goalNews=0; updateGoalBadge(); save(); }
     beep(700,.05);
   });
 });
