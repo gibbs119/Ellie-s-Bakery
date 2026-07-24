@@ -16,7 +16,9 @@ export default defineConfig({
     },
   },
   build: {
-    target: 'es2020',
+    // Older iPads run older Safari — this keeps the bundle parseable there
+    // (iOS 13+), instead of assuming very recent syntax support.
+    target: ['es2019', 'safari13'],
     outDir: 'dist',
     sourcemap: false,
     chunkSizeWarningLimit: 1500,
