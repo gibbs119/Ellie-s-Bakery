@@ -1,5 +1,5 @@
 /* Elise's Bakery — service worker (offline app shell + runtime cache) */
-const VERSION = 'eb-v1';
+const VERSION = 'eb-v2';
 const SHELL = VERSION + '-shell';
 const RUNTIME = VERSION + '-runtime';
 
@@ -9,6 +9,9 @@ const SHELL_FILES = [
   './index.html',
   './classic.html',
   './manifest.json',
+  './fonts/fonts.css',
+  './fonts/baloo2-latin.woff2',
+  './fonts/nunito-latin.woff2',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-512-maskable.png'

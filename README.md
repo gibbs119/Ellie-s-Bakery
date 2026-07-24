@@ -41,6 +41,10 @@ so a young child can follow along with no reading required:
    to bake, add frosting/toppings/drizzle/toppers, then serve it.
 5. Earn 🪙 coins, climb from ⭐1 to ⭐5, and spend coins in the **🛍️ Shop**.
 
+**No wrong answers:** guests happily pay full price for whatever she makes, so
+experimenting is never punished — matching their exact request just earns a small
+bonus. Nobody loses patience or walks in while she's decorating, either.
+
 ## ✨ What you can customize
 
 - **The food:** cakes (1–3 tiers, chocolate/vanilla/strawberry/mint/rainbow),
@@ -102,15 +106,18 @@ src/main.js             the game (Three.js scene, logic, studio, UI)
 public/                 static assets served at the site root
   classic.html            the 2D original
   manifest.json, sw.js    PWA manifest + service worker
+  fonts/                  self-hosted Baloo 2 + Nunito (OFL)
   icons/                  app icons
 .github/workflows/      GitHub Pages build + deploy
 ```
 
 ## 🛠️ Tech notes
 
-- **Three.js r184** bundled from npm (no CDN), with `GLTFLoader` + `DRACOLoader`
-  ready for `.glb` models and a procedural fallback, so the built game is fully
-  self-contained.
+- **Three.js r184** bundled from npm (no CDN), with `GLTFLoader` for `.glb`
+  models and a procedural fallback, so the built game is fully self-contained.
+- **Fonts are self-hosted** (Baloo 2 + Nunito, SIL OFL — see `public/fonts/`), so
+  the lettering survives offline, including text baked into 3D textures like the
+  shop sign, menu board, and station name plates.
 - Tuned for tablets: capped pixel ratio, soft shadows, one main light, gentle
   touch orbit/zoom controls with limits so a young child can't get lost.
 - **Audio:** synthesized music + sound effects (no audio files), with a 🔊 mute

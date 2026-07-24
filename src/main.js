@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
@@ -340,6 +339,13 @@ function stationAt(x,y){
   return null;
 }
 function furnAt(x,y){ return S.placed.find(p=>p.x===x&&p.y===y); }
+/* the fixed kitchen scenery (back-wall counters, sink, mixer, fridge) built by
+   buildKitchen() — solid, so nobody walks through the cabinets */
+function kitchenDecorAt(x,y){
+  if (y===0 && x>=5 && x<=GX-3) return true;   /* counter run + sink + mixer */
+  if (y===1 && x===GX-2) return true;          /* fridge */
+  return false;
+}
 function blocked(x,y){
   if (!inGrid(x,y)) return true;
   const st=stationAt(x,y);
@@ -348,6 +354,7 @@ function blocked(x,y){
     return true;
   }
   if (dividerBlocked(x,y)) return true;   /* the counter separates the rooms */
+  if (kitchenDecorAt(x,y)) return true;
   const f=furnAt(x,y); return !!(f && !FURN[f.type].walkable);
 }
 function reservedTile(x,y){
@@ -406,12 +413,10 @@ function mat(color, o={}){
    catalog entry below. This makes swapping in cohesive CC0 art
    packs (Kenney / Quaternius / Poly Pizza) a data change, not code.
 ========================================================= */
-const CDN='https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/libs/draco/';
 let gltfLoader=null;
 function getGLTFLoader(){
   if (gltfLoader) return gltfLoader;
   gltfLoader=new GLTFLoader();
-  try{ const draco=new DRACOLoader(); draco.setDecoderPath(CDN); gltfLoader.setDRACOLoader(draco); }catch(e){}
   return gltfLoader;
 }
 const modelCache=new Map();   /* url -> Promise<THREE.Object3D (template)> */
@@ -1102,11 +1107,23 @@ function shiftQueue(){
     if (c.qIdx!==i){ c.qIdx=i; const s=QUEUE_SPOTS[i]; walkTo(c,s.x,s.y); if (c.state==='queue') c.state='toQueue'; }
   });
 }
+/* When every table is taken, guests stand and eat — give each their own spot
+   in the dining area instead of stacking everyone on the same tile. */
+function standingSpotFor(c){
+  const taken=new Set(customers.filter(x=>x!==c&&x.stand).map(x=>x.stand.x+','+x.stand.y));
+  for (let y=GY-2; y>DIV_Y; y--){
+    for (let x=GX-2; x>=1; x--){
+      if (blocked(x,y)||reservedTile(x,y)||taken.has(x+','+y)) continue;
+      return {x,y};
+    }
+  }
+  return {x:Math.min(GX-2,10), y:Math.min(GY-2,7)};
+}
 function takeOrder(c){
   c.state='toSeat'; shiftQueue();
   const free=fixedTables().find(t=>!customers.some(x=>x.seat===t.i&&x!==c));
-  if (free){ c.seat=free.i; const st=seatTileFor(free.i); walkTo(c,st.x,st.y); }
-  else { c.seat=null; walkTo(c,Math.min(GX-2,10),Math.min(GY-2,7)); }
+  if (free){ c.seat=free.i; c.stand=null; const st=seatTileFor(free.i); walkTo(c,st.x,st.y); }
+  else { c.seat=null; c.stand=standingSpotFor(c); walkTo(c,c.stand.x,c.stand.y); }
   updateBadge();
 }
 function updateBadge(){
@@ -1912,8 +1929,10 @@ function serveNow(){
   }
   if (o.item==='cookie'&&ST.shape!==o.want.shape) match=false;
   if (o.item==='iceCream'&&ST.scoops.length!==o.want.scoops) match=false;
-  if (!match){ amt=Math.max(2,Math.floor(amt/2)); msg='🙂 "Hmm, not what I asked for… but tasty!"'; }
+  /* Every treat is always welcome — guests never pay less for a creative
+     surprise. Matching the exact order just earns a happy little bonus. */
   let bonus=Math.min(ST.decos.length,8);
+  if (match) bonus+=5; else msg='🤩 "Ooh, a surprise! I love it!"';
   if (ST.drizzle!=='none') bonus+=2;
   if (ST.topper!=='none') bonus+=2;
   if (o.item==='animalCake') bonus+=10;
@@ -2267,4 +2286,19 @@ function boot(){
     $('loadErr').textContent='Could not start 3D. Please check your internet connection and refresh. ('+(err&&err.message||err)+')';
   }
 }
-boot();
+/* The shop sign, menu board and station name plates bake text into canvas
+   textures, so the fonts must be loaded before we draw them — otherwise they'd
+   render in a fallback face until the next rebuild. Wait briefly for the
+   self-hosted fonts, but never let a font problem stop the game from starting. */
+function bootWhenFontsReady(){
+  const go=()=>{ if (!bootWhenFontsReady.done){ bootWhenFontsReady.done=true; boot(); } };
+  if (!document.fonts || !document.fonts.ready){ go(); return; }
+  Promise.race([
+    Promise.all([
+      document.fonts.load("800 46px 'Baloo 2'"),
+      document.fonts.load("800 32px 'Nunito'"),
+    ]).then(()=>document.fonts.ready),
+    new Promise(r=>setTimeout(r, 2500)),   /* safety net */
+  ]).then(go).catch(go);
+}
+bootWhenFontsReady();
