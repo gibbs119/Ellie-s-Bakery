@@ -201,6 +201,34 @@ const TABLECLOTHS = [null,'#FF9EC4','#A8E6CF','#BDE3F5','#E4C1F9','#FFD166','#FF
 function save(){ store.set('eliseBakery3D', JSON.stringify(S)); }
 
 /* =========================================================
+   GRAPHICS QUALITY (tuned for older tablets)
+   ---------------------------------------------------------
+   Three levels. The game starts at the level that worked last time (so the
+   WebGL context is created with the right flags), then watches the real frame
+   rate and steps down if the device is struggling. Grown-ups can also pin a
+   level in My Shop. It never steps back up on its own, to avoid oscillating.
+========================================================= */
+const QUALITY_LEVELS = {
+  2: { name:'Fancy',  maxPR:2,    antialias:true,  shadows:true,  shadowMap:2048, softShadows:true,  envMap:true,  steam:5 },
+  1: { name:'Smooth', maxPR:1.5,  antialias:true,  shadows:true,  shadowMap:1024, softShadows:false, envMap:true,  steam:3 },
+  0: { name:'Fastest',maxPR:1.25, antialias:false, shadows:false, shadowMap:512,  softShadows:false, envMap:false, steam:2 },
+};
+/* A cheap first guess so a slow device doesn't start on the heaviest setting. */
+function guessQuality(){
+  try{
+    const cores=navigator.hardwareConcurrency||2;
+    const touch=(navigator.maxTouchPoints||0)>0;
+    const px=(window.screen?window.screen.width:0)*(window.devicePixelRatio||1);
+    if (touch && (cores<=2 || px<=1600)) return 1;   /* older tablet/phone */
+    return touch?1:2;
+  }catch(e){ return 1; }
+}
+let qualityAuto = (()=>{ const v=parseInt(store.get('eliseQualityAuto'),10); return isNaN(v)?guessQuality():Math.max(0,Math.min(2,v)); })();
+let qualityPref = store.get('eliseQuality') || 'auto';           /* 'auto' | '0' | '1' | '2' */
+function qualityLevel(){ return qualityPref==='auto' ? qualityAuto : Math.max(0,Math.min(2,parseInt(qualityPref,10)||0)); }
+function Q(){ return QUALITY_LEVELS[qualityLevel()]; }
+
+/* =========================================================
    HELPERS
 ========================================================= */
 const $ = id => document.getElementById(id);
@@ -541,11 +569,23 @@ const CATALOG = {
 /* test/diagnostic hook: prove the GLB pipeline end-to-end */
 window.__loadTestModel = url => loadModelTemplate(url).then(t=>{ const m=t.clone(true); m.position.set(0,2,0); scene.add(m); return true; });
 
+let sunLight=null;
 function initThree(){
-  renderer=new THREE.WebGLRenderer({canvas, antialias:true, alpha:false});
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
-  renderer.shadowMap.enabled=true;
-  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  const q=Q();
+  /* antialias is fixed when the context is created, so it uses the level the
+     device settled on last run (persisted), not a mid-session change */
+  renderer=new THREE.WebGLRenderer({canvas, antialias:q.antialias, alpha:false, powerPreference:'default'});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, q.maxPR));
+  renderer.shadowMap.enabled=q.shadows;
+  renderer.shadowMap.type=q.softShadows?THREE.PCFSoftShadowMap:THREE.PCFShadowMap;
+
+  /* an older tablet can lose the GL context under memory pressure — recover
+     instead of leaving a frozen black canvas */
+  canvas.addEventListener('webglcontextlost', ev=>{ ev.preventDefault(); contextLost=true; }, false);
+  canvas.addEventListener('webglcontextrestored', ()=>{
+    contextLost=false;
+    try{ rebuildWorld(); }catch(e){}
+  }, false);
 
   scene=new THREE.Scene();
   scene.background=new THREE.Color('#FCE4F0');
@@ -563,22 +603,18 @@ function initThree(){
   const hemi=new THREE.HemisphereLight(0xffffff, 0xFFE0C0, 0.95);
   scene.add(hemi);
   const dir=new THREE.DirectionalLight(0xffffff, 1.15);
-  dir.position.set(6,12,7); dir.castShadow=true;
-  dir.shadow.mapSize.set(2048,2048);
+  dir.position.set(6,12,7); dir.castShadow=q.shadows;
+  dir.shadow.mapSize.set(q.shadowMap,q.shadowMap);
   dir.shadow.camera.near=1; dir.shadow.camera.far=45;
-  dir.shadow.camera.left=-14; dir.shadow.camera.right=14;
-  dir.shadow.camera.top=14; dir.shadow.camera.bottom=-14;
+  /* frustum is fitted to the room in fitShadowCamera() — a tight fit means far
+     more shadow detail per texel, so a small map still looks good */
   dir.shadow.bias=-0.0005; dir.shadow.normalBias=0.02;
-  scene.add(dir);
+  scene.add(dir); sunLight=dir;
   const fill=new THREE.DirectionalLight(0xFFF0F5, 0.35);
   fill.position.set(-6,6,-4); scene.add(fill);
 
   /* soft image-based lighting so materials get gentle reflections/sheen */
-  try{
-    const pmrem=new THREE.PMREMGenerator(renderer);
-    scene.environment=pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-    scene.environmentIntensity=0.35;
-  }catch(e){}
+  if (q.envMap) applyEnvMap(true);
 
   /* ground raycast plane (invisible, big) */
   groundPlane=new THREE.Mesh(new THREE.PlaneGeometry(60,60), new THREE.MeshBasicMaterial({visible:false}));
@@ -592,7 +628,48 @@ function initThree(){
   resize();
   window.addEventListener('resize', resize);
 }
-let groundPlane, objArrow;
+let groundPlane, objArrow, contextLost=false, envRT=null;
+/* image-based lighting, built once and reusable when quality changes */
+function applyEnvMap(on){
+  if (!scene) return;
+  if (!on){ scene.environment=null; return; }
+  try{
+    if (!envRT){
+      const pmrem=new THREE.PMREMGenerator(renderer);
+      envRT=pmrem.fromScene(new RoomEnvironment(), 0.04);
+      pmrem.dispose();
+    }
+    scene.environment=envRT.texture;
+    scene.environmentIntensity=0.35;
+  }catch(e){}
+}
+/* Fit the shadow frustum to the actual room so every shadow texel is used on
+   things you can see (a big win when the shadow map is small). */
+function fitShadowCamera(){
+  if (!sunLight) return;
+  const r=Math.max(GX,GY)/2+1.5, c=sunLight.shadow.camera;
+  c.left=-r; c.right=r; c.top=r; c.bottom=-r;
+  c.updateProjectionMatrix();
+}
+/* Re-apply quality settings that can change without recreating the context. */
+function applyQuality(){
+  if (!renderer) return;
+  const q=Q();
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, q.maxPR));
+  const shadowsChanged = renderer.shadowMap.enabled!==q.shadows;
+  renderer.shadowMap.enabled=q.shadows;
+  renderer.shadowMap.type=q.softShadows?THREE.PCFSoftShadowMap:THREE.PCFShadowMap;
+  if (sunLight){
+    sunLight.castShadow=q.shadows;
+    sunLight.shadow.mapSize.set(q.shadowMap,q.shadowMap);
+    if (sunLight.shadow.map){ sunLight.shadow.map.dispose(); sunLight.shadow.map=null; }
+  }
+  applyEnvMap(q.envMap);
+  /* toggling shadows changes the shaders, so materials must recompile once */
+  if (shadowsChanged) scene.traverse(o=>{ if (o.material){ const m=o.material; (Array.isArray(m)?m:[m]).forEach(x=>x.needsUpdate=true); } });
+  try{ buildSteam(); }catch(e){}
+  resize();
+}
 function resize(){
   const w=canvas.clientWidth, h=canvas.clientHeight;
   if (!w||!h) return;
@@ -789,11 +866,13 @@ function buildStations(){
     const g=makeStation(k); const p=W(STATION_POS[k].x,STATION_POS[k].y);
     g.position.set(p.x,0,p.z); scene.add(g); stationObjs[k]=g;
   });
+  collectZzz();
 }
 function refreshStation(k){
   if (stationObjs[k]){ scene.remove(stationObjs[k]); disposeGroup(stationObjs[k]); }
   const g=makeStation(k); const p=W(STATION_POS[k].x,STATION_POS[k].y);
   g.position.set(p.x,0,p.z); scene.add(g); stationObjs[k]=g;
+  collectZzz();
 }
 function makeStation(k){
   const lvl=S.stations[k];
@@ -853,10 +932,12 @@ let tableObjs=[];
 function buildTables(){
   tableObjs.forEach(o=>{ scene.remove(o); disposeGroup(o); }); tableObjs=[];
   tableSlots().forEach((p,i)=>{ const g=makeTable(i); g.userData.tableIndex=i; const w=W(p.x,p.y); g.position.set(w.x,0,w.z); scene.add(g); tableObjs[i]=g; });
+  collectZzz();
 }
 function refreshTable(i){
   if (tableObjs[i]){ scene.remove(tableObjs[i]); disposeGroup(tableObjs[i]); }
   const g=makeTable(i); g.userData.tableIndex=i; const p=tableSlots()[i]; const w=W(p.x,p.y); g.position.set(w.x,0,w.z); scene.add(g); tableObjs[i]=g;
+  collectZzz();
 }
 function makeTable(i){
   const lvl=S.tables[i];
@@ -1286,11 +1367,33 @@ function checkObjectives(){
    RENDER LOOP
 ========================================================= */
 let lastT=performance.now();
+/* Watch the real frame rate for a few seconds and drop a quality level if the
+   device can't keep up. Only ever steps down, and remembers the result so the
+   next launch starts (and creates its GL context) at a level that works. */
+let fpsFrames=0, fpsSince=performance.now(), fpsChecks=0;
+/* Ignore the first few seconds: models are still loading and decoding then, so
+   the frame rate dips for reasons that have nothing to do with the device. */
+let perfGraceUntil=performance.now()+6000;
+function watchPerformance(now){
+  if (qualityPref!=='auto' || fpsChecks>=3) return;
+  if (now<perfGraceUntil){ fpsFrames=0; fpsSince=now; return; }
+  fpsFrames++;
+  const span=now-fpsSince;
+  if (span<2500) return;
+  const fps=fpsFrames*1000/span;
+  fpsFrames=0; fpsSince=now; fpsChecks++;
+  if (fps<34 && qualityAuto>0){
+    qualityAuto--; store.set('eliseQualityAuto', String(qualityAuto));
+    applyQuality(); renderMy();
+  } else if (fps>52){
+    fpsChecks=3;   /* comfortably fast — stop watching */
+  }
+}
 function frame(now){
   const dt=Math.min(0.05,(now-lastT)/1000); lastT=now;
   const worldActive=$('scr-world').classList.contains('active');
   [elise,...staffWalkers,...customers].forEach(w=>stepWalker(w,dt));
-  if (worldActive){
+  if (worldActive && !contextLost){
     controls.update();
     for (let i=0;i<mixers.length;i++) mixers[i].update(dt);
     updateSteam(dt);
@@ -1299,8 +1402,9 @@ function frame(now){
     updateObjArrow(now);
     updateBubbles();
     renderer.render(scene,camera);
+    watchPerformance(now);
   }
-  if (studioOpen) renderStudio(now);
+  if (studioOpen && !contextLost) renderStudio(now);
   requestAnimationFrame(frame);
 }
 function updateWalkers(now){
@@ -1323,9 +1427,19 @@ function updateWalkers(now){
     if (holder){ const sq=moving?1+Math.sin(t)*0.04:1; holder.scale.y=(w.cfg.kid?0.72:1.0)*sq; }
   });
 }
+/* Sleepy 💤 sprites, collected when stations/tables are (re)built so the frame
+   loop can bob them without walking the whole scene graph every frame. */
+let zzzSprites=[];
+function collectZzz(){
+  zzzSprites=[];
+  const grab=(g,y)=>{ if (g) g.traverse(o=>{ if (o.userData&&o.userData.zzz){ o.userData.zzzY=y; zzzSprites.push(o); } }); };
+  Object.values(stationObjs).forEach(g=>grab(g,1.5));
+  tableObjs.forEach(g=>grab(g,1.0));
+}
 function updateStationsFx(now){
-  /* gently bob the sleepy 💤 sprites on unfixed stations/tables */
-  scene.traverse(o=>{ if (o.userData&&o.userData.zzz){ o.position.y = (o.parent&&o.parent.userData.station?1.5:1.0)+Math.sin(now/400)*0.06; } });
+  if (!zzzSprites.length) return;
+  const bob=Math.sin(now/400)*0.06;
+  for (let i=0;i<zzzSprites.length;i++){ const s=zzzSprites[i]; s.position.y=s.userData.zzzY+bob; }
 }
 function updateObjArrow(now){
   const obj=currentObjective();
@@ -1514,16 +1628,17 @@ let ST=null, studioOpen=false;
 let SR=null, SS=null, SCam=null, STurn=null, treatGroup=null, sControls=null;
 function initStudioScene(){
   const sc=$('studioCanvas');
-  SR=new THREE.WebGLRenderer({canvas:sc, antialias:true, alpha:true});
-  SR.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
-  SR.shadowMap.enabled=true; SR.shadowMap.type=THREE.PCFSoftShadowMap;
+  const q=Q();
+  SR=new THREE.WebGLRenderer({canvas:sc, antialias:q.antialias, alpha:true, powerPreference:'default'});
+  SR.setPixelRatio(Math.min(window.devicePixelRatio||1, q.maxPR));
+  SR.shadowMap.enabled=q.shadows; SR.shadowMap.type=q.softShadows?THREE.PCFSoftShadowMap:THREE.PCFShadowMap;
   SS=new THREE.Scene();
   SCam=new THREE.PerspectiveCamera(42,1,0.1,50);
   SCam.position.set(0,2.4,4.6); SCam.lookAt(0,1.1,0);
-  try{ const spm=new THREE.PMREMGenerator(SR); SS.environment=spm.fromScene(new RoomEnvironment(),0.04).texture; SS.environmentIntensity=0.45; }catch(e){}
+  if (q.envMap){ try{ const spm=new THREE.PMREMGenerator(SR); SS.environment=spm.fromScene(new RoomEnvironment(),0.04).texture; SS.environmentIntensity=0.45; spm.dispose(); }catch(e){} }
   SS.add(new THREE.HemisphereLight(0xffffff,0xFFE0C0,1.0));
-  const d=new THREE.DirectionalLight(0xffffff,1.1); d.position.set(3,6,4); d.castShadow=true;
-  d.shadow.mapSize.set(1024,1024); d.shadow.camera.near=0.5; d.shadow.camera.far=20;
+  const d=new THREE.DirectionalLight(0xffffff,1.1); d.position.set(3,6,4); d.castShadow=q.shadows;
+  d.shadow.mapSize.set(q.shadows?1024:512,q.shadows?1024:512); d.shadow.camera.near=0.5; d.shadow.camera.far=20;
   d.shadow.camera.left=-4;d.shadow.camera.right=4;d.shadow.camera.top=4;d.shadow.camera.bottom=-4;
   SS.add(d);
   /* turntable */
@@ -2025,14 +2140,26 @@ function shopAct(a){
 /* render a treat's 3D model to a small PNG for the menu board (cached) */
 let thumbR=null, thumbS=null, thumbC=null;
 const thumbCache={};
+let thumbIdle=null;
+/* The thumbnail renderer is a whole extra WebGL context, so release it once the
+   menu has finished drawing rather than holding it for the whole session. */
+function releaseThumbRenderer(){
+  clearTimeout(thumbIdle);
+  thumbIdle=setTimeout(()=>{
+    if (!thumbR) return;
+    try{ thumbR.dispose(); thumbR.forceContextLoss&&thumbR.forceContextLoss(); }catch(e){}
+    thumbR=null; thumbS=null; thumbC=null;
+  }, 3000);
+}
 function renderTreatThumb(item, cb){
   if (thumbCache[item]){ cb(thumbCache[item]); return; }
   const url=ITEM_MODEL[item];
-  if (!url){ cb(null); return; }
+  /* on the lightest setting keep the emoji menu — no third GL context at all */
+  if (!url || Q().maxPR<=1.25){ cb(null); return; }
   try{
     if (!thumbR){
       thumbR=new THREE.WebGLRenderer({antialias:true, alpha:true, preserveDrawingBuffer:true});
-      thumbR.setPixelRatio(2); thumbR.setSize(128,128);
+      thumbR.setPixelRatio(Math.min(2, Q().maxPR)); thumbR.setSize(128,128);
       thumbS=new THREE.Scene();
       thumbS.add(new THREE.HemisphereLight(0xffffff,0xFFE6D0,1.3));
       const d=new THREE.DirectionalLight(0xffffff,1.15); d.position.set(2,4,3); thumbS.add(d);
@@ -2040,12 +2167,14 @@ function renderTreatThumb(item, cb){
       thumbC.position.set(1.5,1.4,1.95); thumbC.lookAt(0,0.42,0);
     }
     loadModelTemplate(resolveAssetUrl('assets/models/'+url)).then(tpl=>{
+      if (!thumbR){ cb(null); return; }        /* released while loading */
       const g=new THREE.Group(); const inst=tpl.clone(true);
       fitAndGround(inst,{fitH:0.95}); g.add(inst); thumbS.add(g);
       thumbR.render(thumbS,thumbC);
       let data=null; try{ data=thumbR.domElement.toDataURL('image/png'); }catch(e){}
       thumbS.remove(g); disposeGroup(g);
       if (data) thumbCache[item]=data;
+      releaseThumbRenderer();
       cb(data);
     }).catch(()=>cb(null));
   }catch(e){ cb(null); }
@@ -2085,6 +2214,18 @@ function renderMy(){
   S.unlockedItems.forEach(k=>renderTreatThumb(k, data=>{
     const el=$('thumb-'+k); if (el && data) el.innerHTML=`<img src="${data}" alt="${ITEMS[k].name}">`;
   }));
+  /* graphics quality picker (auto-detects, but grown-ups can pin a level) */
+  const qOpts=[['auto','✨ Auto'],['2','Fancy'],['1','Smooth'],['0','Fastest']];
+  $('qualityRow').innerHTML=qOpts.map(([v,label])=>{
+    const on=qualityPref===v;
+    const note=v==='auto'?` (${QUALITY_LEVELS[qualityAuto].name})`:'';
+    return `<div class="theme-swatch ${on?'sel':''}" data-q="${v}" style="background:${on?'#FF9EC4':'#F0E2D2'};color:#5C3A21;text-shadow:none">${label}${note}</div>`;
+  }).join('');
+  $('qualityRow').querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{
+    qualityPref=b.dataset.q; store.set('eliseQuality', qualityPref);
+    applyQuality(); renderMy(); chime();
+    toast(qualityPref==='auto'?'✨ Graphics set to Auto':'⚙️ Graphics: '+Q().name);
+  });
   const nxt=stars()<5?` (next at ${STAR_PTS[stars()]} — you have ${S.starPts})`:' (MAX!)';
   $('statsPanel').innerHTML=`
     <div style="font-weight:800;line-height:2">
@@ -2226,8 +2367,9 @@ function buildSteam(){
   if (steamGroup){ scene.remove(steamGroup); steamParts.forEach(s=>s.material.dispose()); }
   steamGroup=new THREE.Group(); scene.add(steamGroup); steamParts=[];
   if (!PUFF) PUFF=puffTexture();
-  const emitters=[{p:W(STATION_POS.oven.x,STATION_POS.oven.y), y:1.5, n:5}];
-  S.placed.filter(p=>p.type==='coffee').forEach(p=>emitters.push({p:W(p.x,p.y), y:0.9, n:3}));
+  const puffs=Q().steam;
+  const emitters=[{p:W(STATION_POS.oven.x,STATION_POS.oven.y), y:1.5, n:puffs}];
+  S.placed.filter(p=>p.type==='coffee').forEach(p=>emitters.push({p:W(p.x,p.y), y:0.9, n:Math.max(1,puffs-2)}));
   emitters.forEach(e=>{
     for (let i=0;i<e.n;i++){
       const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:PUFF, transparent:true, opacity:0, depthWrite:false}));
@@ -2243,7 +2385,7 @@ function updateSteam(dt){
     spr.material.opacity=Math.sin(l*Math.PI)*0.45; spr.scale.setScalar(0.22+l*0.42);
   }
 }
-function rebuildWorld(){ buildRoom(); buildStations(); buildKitchen(); buildTables(); buildDivider(); buildMenuBoard(); buildSteam(); syncFurniture(); }
+function rebuildWorld(){ fitShadowCamera(); buildRoom(); buildStations(); buildKitchen(); buildTables(); buildDivider(); buildMenuBoard(); buildSteam(); syncFurniture(); }
 document.querySelectorAll('.tab').forEach(t=>{
   t.addEventListener('click',()=>{
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));

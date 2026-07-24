@@ -118,8 +118,13 @@ public/                 static assets served at the site root
 - **Fonts are self-hosted** (Baloo 2 + Nunito, SIL OFL — see `public/fonts/`), so
   the lettering survives offline, including text baked into 3D textures like the
   shop sign, menu board, and station name plates.
-- Tuned for tablets: capped pixel ratio, soft shadows, one main light, gentle
-  touch orbit/zoom controls with limits so a young child can't get lost.
+- Tuned for tablets, **including older iPads**: three graphics levels (*Fancy /
+  Smooth / Fastest*) controlling pixel ratio, antialiasing, shadow quality and
+  image-based lighting. **Auto** picks one, then watches the real frame rate and
+  steps down if the device struggles, remembering the result for next launch —
+  or pin a level in *My Shop → Graphics*. Also recovers from WebGL context loss,
+  and the build targets older Safari (iOS 13+).
+- Gentle touch orbit/zoom controls with limits so a young child can't get lost.
 - **Audio:** synthesized music + sound effects (no audio files), with a 🔊 mute
   toggle in the top bar that remembers your choice.
 - Progress saves to `localStorage` on the device — no backend or accounts. The
