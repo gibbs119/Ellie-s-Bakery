@@ -1045,6 +1045,25 @@ function seatTileFor(slotIdx){
   }
   return {x:p.x,y:p.y+1};
 }
+/* Where a server should stand to hand over food: next to the guest/table, not
+   on the same tile the guest is sitting at. */
+function deliverTileFor(c){
+  const cust={x:Math.round(c.x),y:Math.round(c.y)};
+  const isCust=(x,y)=>x===cust.x&&y===cust.y;
+  if (c.seat!=null){
+    const p=tableSlots()[c.seat];
+    for (const [dx,dy] of [[0,1],[1,0],[-1,0],[0,-1]]){
+      const x=p.x+dx,y=p.y+dy;
+      if (inGrid(x,y)&&!blocked(x,y)&&!isCust(x,y)) return {x,y};
+    }
+  }
+  /* fall back to any free tile beside the guest */
+  for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+    const x=cust.x+dx,y=cust.y+dy;
+    if (inGrid(x,y)&&!blocked(x,y)) return {x,y};
+  }
+  return cust;
+}
 function queueList(){ return customers.filter(c=>c.state==='toQueue'||c.state==='queue').sort((a,b)=>a.qIdx-b.qIdx); }
 function makeOrder(kid){
   const menu=S.unlockedItems.filter(k=>!ITEMS[k].party);
@@ -1146,14 +1165,14 @@ function logicTick(){
     if (d.phase==='pickup'){
       if (!d.w.path.length){
         setCarry(d.w, d.item); d.phase='deliver';
-        const st=c.seat!=null?seatTileFor(c.seat):{x:Math.round(c.x),y:Math.round(c.y)};
+        const st=deliverTileFor(c);
         walkTo(d.w,st.x,st.y);
       }
       return true;
     }
     if (!d.w.path.length&&(c.state==='waitingFood')){
       setCarry(d.w,null);
-      c.state='eating'; c.eatT=3; c.eatIco=d.ico; c.pendingAmt=d.amt; c.payMsg=d.msg;
+      c.state='eating'; c.eatT=16; c.eatIco=d.ico; c.pendingAmt=d.amt; c.payMsg=d.msg;
       return false;
     }
     if (!d.w.path.length&&c.state!=='waitingFood'&&c.state!=='toSeat'){ setCarry(d.w,null); return false; }
@@ -1175,7 +1194,7 @@ function logicTick(){
         if (w.cook===0&&w.target){
           const c=customers.find(x=>x.id===w.target);
           if (c){
-            const st=c.seat!=null?seatTileFor(c.seat):{x:Math.round(c.x),y:Math.round(c.y)};
+            const st=deliverTileFor(c);
             walkTo(w,st.x,st.y);
             const amt=Math.max(2,Math.floor(S.prices[c.order.item]*0.65));
             setCarry(w, c.order.item);
