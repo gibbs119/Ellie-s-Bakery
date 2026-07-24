@@ -26,10 +26,10 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Build
+        # Vite's base is './' (relative), so the same build works under the
+        # GitHub Pages project subpath and at a domain root alike — no BASE_PATH
+        # needed.
         run: npm run build
-        env:
-          # Base path for a GitHub Pages project site (https://<user>.github.io/<repo>/).
-          BASE_PATH: /${{ github.event.repository.name }}/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
