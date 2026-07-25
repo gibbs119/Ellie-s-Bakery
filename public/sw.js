@@ -1,5 +1,5 @@
 /* Elise's Bakery — service worker (offline app shell + runtime cache) */
-const VERSION = 'eb-v2';
+const VERSION = 'eb-v3';
 const SHELL = VERSION + '-shell';
 const RUNTIME = VERSION + '-runtime';
 
@@ -41,14 +41,35 @@ self.addEventListener('fetch', event => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
 
-  /* Same-origin: cache-first, fall back to network and cache it. */
   if (url.origin === self.location.origin) {
+    /* The page itself is fetched NETWORK-FIRST. The built JS/CSS filenames
+       contain a content hash that changes on every deploy, so serving a cached
+       page could hand the browser a filename that no longer exists on the
+       server — which loads nothing and leaves the game on its loading screen.
+       Fresh HTML always references assets that exist; the cache is only a
+       fallback for being offline. */
+    const isDoc = req.mode === 'navigate' ||
+                  req.destination === 'document' ||
+                  url.pathname === '/' ||
+                  url.pathname.endsWith('.html');
+    if (isDoc) {
+      event.respondWith(
+        fetch(req).then(res => {
+          const copy = res.clone();
+          caches.open(SHELL).then(c => c.put(req, copy)).catch(() => {});
+          return res;
+        }).catch(() => caches.match(req).then(hit => hit || caches.match('./index.html')))
+      );
+      return;
+    }
+    /* Everything else (hashed assets, models, fonts, icons) is immutable for a
+       given URL, so cache-first is both safe and fast. */
     event.respondWith(
       caches.match(req).then(hit => hit || fetch(req).then(res => {
         const copy = res.clone();
         caches.open(SHELL).then(c => c.put(req, copy)).catch(() => {});
         return res;
-      }).catch(() => caches.match('./index.html')))
+      }))
     );
     return;
   }

@@ -2620,7 +2620,22 @@ function setupAppShell(){
   window.addEventListener('touchstart',kick,{once:false});
   /* PWA service worker */
   if ('serviceWorker' in navigator){
-    window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+    /* If a worker is already running the show, a *new* one taking over means a
+       fresh version was just deployed — reload once so the page and its assets
+       come from the same build. (Skipped on a first-ever install, where the
+       controller simply goes from none to one.) */
+    if (navigator.serviceWorker.controller){
+      let refreshing=false;
+      navigator.serviceWorker.addEventListener('controllerchange',()=>{
+        if (refreshing) return; refreshing=true;
+        try{ location.reload(); }catch(e){}
+      });
+    }
+    window.addEventListener('load',()=>{
+      navigator.serviceWorker.register('sw.js').then(reg=>{
+        try{ reg.update(); }catch(e){}
+      }).catch(()=>{});
+    });
   }
 }
 function boot(){
@@ -2634,6 +2649,8 @@ function boot(){
     renderAll();
     checkObjectives();
     setupAppShell();
+    window.__ebBooted=true;              /* tells the rescue watchdog we're alive */
+    try{ sessionStorage.removeItem('ebRecoveredOnce'); }catch(e){}
     $('loading').style.display='none';
     setInterval(logicTick,1000);
     requestAnimationFrame(frame);
