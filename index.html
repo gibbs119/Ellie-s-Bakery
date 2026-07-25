@@ -400,6 +400,49 @@
   <div id="loadErr"></div>
 </div>
 
+<!-- Rescue hatch. This is a plain (non-module) script on purpose: if the game's
+     module fails to load at all, this still runs. If the bakery hasn't started
+     after a few seconds, clear the offline caches + service worker once and
+     reload, which recovers a device holding on to a stale cached page. -->
+<script>
+(function(){
+  var FLAG='ebRecoveredOnce';
+  window.__ebBooted=false;
+  function started(){
+    if (window.__ebBooted) return true;
+    var l=document.getElementById('loading');
+    return !!(l && getComputedStyle(l).display==='none');
+  }
+  setTimeout(function(){
+    if (started()) { try{ sessionStorage.removeItem(FLAG); }catch(e){} return; }
+    var tried=false;
+    try{ tried=sessionStorage.getItem(FLAG)==='1'; }catch(e){}
+    if (!tried){
+      try{ sessionStorage.setItem(FLAG,'1'); }catch(e){}
+      var reload=function(){ try{ location.reload(); }catch(e){} };
+      var jobs=[];
+      try{
+        if (window.caches && caches.keys)
+          jobs.push(caches.keys().then(function(keys){
+            return Promise.all(keys.map(function(k){ return caches.delete(k); }));
+          }));
+        if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations)
+          jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){
+            return Promise.all(rs.map(function(r){ return r.unregister(); }));
+          }));
+      }catch(e){}
+      Promise.all(jobs).then(reload, reload);
+      setTimeout(reload, 2500);          /* never wait forever */
+    } else {
+      var e2=document.getElementById('loadErr');
+      if (e2){
+        e2.style.display='block';
+        e2.textContent='Still loading… please check your internet connection, then close this tab and open the bakery again.';
+      }
+    }
+  }, 9000);
+})();
+</script>
 <script type="module" src="/src/main.js"></script>
 </body>
 </html>
