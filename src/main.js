@@ -2665,14 +2665,19 @@ function boot(){
    render in a fallback face until the next rebuild. Wait briefly for the
    self-hosted fonts, but never let a font problem stop the game from starting. */
 function bootWhenFontsReady(){
-  const go=()=>{ if (!bootWhenFontsReady.done){ bootWhenFontsReady.done=true; boot(); } };
-  if (!document.fonts || !document.fonts.ready){ go(); return; }
-  Promise.race([
+  let done=false;
+  const go=()=>{ if (done) return; done=true; boot(); };
+  /* Unconditional safety net FIRST: whatever the Font Loading API does — resolve
+     late, reject, or throw synchronously (older Safari is strict about the font
+     shorthand) — the bakery still opens. Waiting for fonts is only an
+     optimisation so text baked into 3D textures uses the real face. */
+  setTimeout(go, 2500);
+  try{
+    if (!document.fonts || typeof document.fonts.load!=='function'){ go(); return; }
     Promise.all([
       document.fonts.load("800 46px 'Baloo 2'"),
       document.fonts.load("800 32px 'Nunito'"),
-    ]).then(()=>document.fonts.ready),
-    new Promise(r=>setTimeout(r, 2500)),   /* safety net */
-  ]).then(go).catch(go);
+    ]).then(()=>document.fonts.ready).then(go).catch(go);
+  }catch(e){ go(); }
 }
 bootWhenFontsReady();

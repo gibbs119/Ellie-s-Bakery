@@ -408,6 +408,26 @@
 (function(){
   var FLAG='ebRecoveredOnce';
   window.__ebBooted=false;
+  /* Surface problems instead of spinning forever. A script that fails to load
+     or parse never reaches the game's own error handling, so catch it here. */
+  function showErr(msg){
+    var e=document.getElementById('loadErr');
+    if (!e || window.__ebBooted) return;
+    e.style.display='block';
+    e.textContent='⚠️ '+msg;
+  }
+  window.addEventListener('error', function(ev){
+    if (window.__ebBooted) return;
+    if (ev && ev.target && ev.target.tagName==='SCRIPT'){ showErr("Couldn't load the game files. Check your connection and try again."); return; }
+    var m=(ev && (ev.message || (ev.error && ev.error.message))) || 'Something went wrong';
+    var where=(ev && ev.filename) ? ' ('+String(ev.filename).split('/').pop()+':'+(ev.lineno||0)+')' : '';
+    showErr(m+where);
+  }, true);
+  window.addEventListener('unhandledrejection', function(ev){
+    if (window.__ebBooted) return;
+    var r=ev && ev.reason;
+    showErr((r && (r.message||r)) || 'Something went wrong');
+  });
   function started(){
     if (window.__ebBooted) return true;
     var l=document.getElementById('loading');
@@ -435,13 +455,30 @@
       setTimeout(reload, 2500);          /* never wait forever */
     } else {
       var e2=document.getElementById('loadErr');
-      if (e2){
+      /* keep a real error message if we already have one — it's more useful */
+      if (e2 && !e2.textContent){
         e2.style.display='block';
         e2.textContent='Still loading… please check your internet connection, then close this tab and open the bakery again.';
       }
     }
   }, 9000);
 })();
+</script>
+<!-- Very old browsers can't run ES modules at all, so the 3D game would never
+     start and nothing would explain why. Point them at the 2D version, which
+     needs no build and runs anywhere. -->
+<script nomodule>
+  (function(){
+    function show(){
+      var e=document.getElementById('loadErr');
+      if (!e) return;
+      e.style.display='block';
+      e.innerHTML="This browser is too old for the 3D bakery. Try updating iOS — or "+
+                  '<a href="classic.html" style="color:#E84E8A">play the 2D bakery here</a>.';
+    }
+    if (document.readyState==='loading') document.addEventListener('DOMContentLoaded',show);
+    else show();
+  })();
 </script>
 <script type="module" src="/src/main.js"></script>
 </body>
